@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ActiveMap Task Reviewer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a1a2e;min-height:100vh}
+.screen{display:none;min-height:100vh}
+.screen.active{display:flex;flex-direction:column}
+
+/* ── TOPBAR ── */
+.topbar{background:#1a1a2e;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;position:sticky;top:0;z-index:100}
+.topbar .logo{font-weight:700;font-size:15px;letter-spacing:.3px;white-space:nowrap}
+.topbar .logo span{color:#4fc3f7}
+.topbar-info{flex:1;font-size:12px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stats-bar{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.stat-chip{display:flex;align-items:center;gap:3px;font-size:12px;font-weight:600;padding:3px 7px;border-radius:10px}
+.stat-chip.ok{background:#14532d;color:#86efac}
+.stat-chip.pend{background:#1e3a5f;color:#93c5fd}
+.stat-chip.err{background:#7f1d1d;color:#fca5a5}
+.stat-chip.skip{background:#3f3f46;color:#d4d4d8}
+#topbar-progress{font-size:12px;color:#94a3b8;flex-shrink:0}
+.top-btn{background:none;border:1px solid #334155;color:#94a3b8;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap}
+.top-btn:hover{background:#334155;color:#fff}
+
+/* ── LOGIN ── */
+#scr-login{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);align-items:center;justify-content:center}
+.login-box{background:#fff;border-radius:16px;padding:36px 32px;width:340px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.login-box h2{font-size:20px;color:#1a1a2e;margin-bottom:6px}
+.login-box p{font-size:13px;color:#64748b;margin-bottom:24px}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+.form-group input{width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:10px 12px;font-size:14px;color:#1a1a2e;transition:border .2s}
+.form-group input:focus{outline:none;border-color:#4fc3f7}
+.login-err{color:#ef4444;font-size:13px;margin-top:8px;display:none}
+.btn{width:100%;padding:12px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary{background:#1e6ff1;color:#fff}
+.btn-primary:hover{background:#1558d0}
+.btn-primary:disabled{background:#93c5fd;cursor:not-allowed}
+
+/* ── SETUP ── */
+#scr-setup .content{flex:1;overflow-y:auto;padding:20px 16px;max-width:700px;margin:0 auto;width:100%}
+.setup-block{background:#fff;border-radius:12px;padding:20px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.setup-block h3{font-size:13px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.setup-block h3 .block-num{width:20px;height:20px;border-radius:50%;background:#1e6ff1;color:#fff;font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;color:#64748b;margin-bottom:4px;font-weight:500}
+.field select,.field input[type=text],.field input[type=date]{width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:9px 11px;font-size:13px;color:#1a1a2e;background:#fff}
+.field select:focus,.field input:focus{outline:none;border-color:#4fc3f7}
+.field select option{white-space:normal;word-wrap:break-word}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* org dropdown */
+.org-wrap{position:relative}
+.org-inp-row{display:flex;gap:6px}
+.org-inp-row input{flex:1;border:1.5px solid #e2e8f0;border-radius:8px;padding:9px 11px;font-size:13px;color:#1a1a2e}
+.org-inp-row input:focus{outline:none;border-color:#4fc3f7}
+.org-clr{background:none;border:1.5px solid #e2e8f0;border-radius:8px;width:36px;flex-shrink:0;cursor:pointer;color:#94a3b8;font-size:16px;display:none;align-items:center;justify-content:center}
+.org-clr:hover{background:#fee2e2;border-color:#fca5a5;color:#ef4444}
+.org-dd{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:220px;overflow-y:auto;z-index:200;display:none}
+.org-dd.open{display:block}
+.org-opt{padding:9px 12px;cursor:pointer;font-size:13px;color:#1a1a2e}
+.org-opt:hover,.org-opt.hi{background:#eff6ff}
+.org-opt.all-opt{color:#1e6ff1;font-weight:600;border-bottom:1px solid #f1f5f9}
+
+/* buttons config */
+.btn-cfg-list{display:flex;flex-direction:column;gap:8px}
+.btn-cfg-row{display:flex;align-items:center;gap:8px;background:#f8fafc;border-radius:8px;padding:8px 10px}
+.btn-cfg-num{font-size:12px;color:#94a3b8;font-weight:700;width:20px;flex-shrink:0}
+.btn-cfg-label{flex:1;border:1.5px solid #e2e8f0;border-radius:6px;padding:6px 9px;font-size:13px}
+.btn-cfg-label:focus{outline:none;border-color:#4fc3f7}
+.btn-cfg-status{flex:1;border:1.5px solid #e2e8f0;border-radius:6px;padding:6px 9px;font-size:13px;background:#fff;min-width:0}
+.btn-cfg-color{width:34px;height:34px;border-radius:6px;border:2px solid #e2e8f0;cursor:pointer;padding:2px;flex-shrink:0}
+.btn-cfg-del{background:none;border:none;color:#cbd5e1;cursor:pointer;font-size:17px;padding:2px 4px;flex-shrink:0}
+.btn-cfg-del:hover{color:#ef4444}
+.add-btn-row{display:flex;justify-content:flex-end;margin-top:8px}
+.add-btn{background:none;border:1.5px dashed #cbd5e1;border-radius:8px;color:#64748b;padding:7px 14px;cursor:pointer;font-size:13px;transition:all .2s}
+.add-btn:hover{border-color:#1e6ff1;color:#1e6ff1;background:#eff6ff}
+.setup-action{margin-top:4px}
+
+/* ── VIEWER ── */
+#scr-viewer{flex-direction:column}
+#scr-viewer .content{flex:1;overflow-y:auto;padding:12px;display:flex;align-items:flex-start;justify-content:center}
+.viewer-inner{width:100%;max-width:600px}
+
+/* Task card */
+.task-card{background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.10);overflow:hidden;position:relative}
+.task-card-header{background:#1a1a2e;padding:12px 16px 10px;color:#fff}
+.task-num{font-size:11px;color:#64748b;font-weight:600;letter-spacing:.5px;margin-bottom:4px}
+.task-title{font-size:15px;font-weight:600;line-height:1.4;word-break:break-word;white-space:normal}
+.task-badge-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.task-badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;word-break:break-word}
+.badge-type{background:#0f3460;color:#93c5fd}
+.badge-org{background:#1e3a5f;color:#bfdbfe}
+.badge-status{background:#14532d;color:#86efac}
+.badge-date{background:#3f3f46;color:#d4d4d8}
+
+.task-card-body{padding:14px 16px}
+.task-desc{font-size:13px;color:#374151;line-height:1.55;margin-bottom:12px;word-break:break-word;white-space:pre-wrap}
+.task-meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+.task-meta-item{background:#f8fafc;border-radius:8px;padding:8px 10px}
+.task-meta-item .lbl{font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.task-meta-item .val{font-size:12px;color:#1a1a2e;margin-top:2px;word-break:break-word}
+
+/* submit status pill */
+.submit-pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 9px;border-radius:10px;font-weight:600;margin-bottom:10px}
+.submit-pill.pending{background:#1e3a5f;color:#93c5fd}
+.submit-pill.ok{background:#14532d;color:#86efac}
+.submit-pill.err{background:#7f1d1d;color:#fca5a5}
+.submit-pill.none{display:none}
+
+/* decision buttons */
+.decision-area{margin-top:2px}
+.decision-area .decision-label{font-size:12px;color:#64748b;font-weight:600;margin-bottom:8px}
+.decision-btns{display:flex;flex-wrap:wrap;gap:8px}
+.dec-btn{flex:1;min-width:100px;padding:11px 8px;border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:5px;word-break:break-word;text-align:center;line-height:1.3}
+.dec-btn:hover{opacity:.88;transform:translateY(-1px)}
+.dec-btn.active{box-shadow:0 0 0 3px rgba(255,255,255,.8),0 0 0 5px currentColor}
+.dec-btn.skip-btn{background:#475569;flex-basis:100%}
+
+/* nav row */
+.nav-row{display:flex;gap:8px;margin-top:12px}
+.nav-btn{flex:1;padding:10px;border:1.5px solid #e2e8f0;background:#fff;border-radius:10px;cursor:pointer;font-size:13px;color:#475569;font-weight:500;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:4px}
+.nav-btn:hover{background:#f1f5f9;border-color:#94a3b8}
+.nav-btn:disabled{opacity:.4;cursor:not-allowed}
+.nav-btn.finish-btn{background:#1e6ff1;color:#fff;border-color:#1e6ff1}
+.nav-btn.finish-btn:hover{background:#1558d0}
+
+/* ── HISTORY DRAWER ── */
+.hist-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:none}
+.hist-overlay.open{display:block}
+.hist-drawer{position:fixed;right:0;top:0;bottom:0;width:300px;background:#fff;z-index:301;display:flex;flex-direction:column;box-shadow:-4px 0 20px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .25s}
+.hist-drawer.open{transform:none}
+.hist-head{padding:14px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;background:#1a1a2e;color:#fff;flex-shrink:0}
+.hist-head h4{font-size:14px;font-weight:600}
+.hist-close{background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:0}
+.hist-close:hover{color:#fff}
+.hist-list{flex:1;overflow-y:auto;padding:8px}
+.hist-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;margin-bottom:2px;border:1.5px solid transparent}
+.hist-item:hover{background:#f0f9ff;border-color:#bae6fd}
+.hist-item.current{background:#eff6ff;border-color:#93c5fd}
+.hist-item .hi-num{font-size:11px;color:#94a3b8;width:26px;flex-shrink:0;font-weight:700}
+.hist-item .hi-name{font-size:12px;color:#1a1a2e;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.35}
+.hist-item .hi-dec{font-size:11px;font-weight:600;padding:2px 7px;border-radius:8px;color:#fff;white-space:nowrap;flex-shrink:0}
+.hist-item .hi-sub{font-size:13px;flex-shrink:0;width:16px;text-align:center}
+
+/* ── SUMMARY ── */
+#scr-summary .content{flex:1;overflow-y:auto;padding:16px;max-width:600px;margin:0 auto;width:100%}
+.sum-block{background:#fff;border-radius:12px;padding:18px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.sum-block h3{font-size:13px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}
+.sum-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.sum-stat{background:#f8fafc;border-radius:10px;padding:12px;text-align:center}
+.sum-stat .n{font-size:26px;font-weight:700;line-height:1}
+.sum-stat .l{font-size:11px;color:#64748b;margin-top:3px}
+.sum-btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sum-dec-stat{display:flex;align-items:center;gap:8px;padding:10px;border-radius:8px;background:#f8fafc}
+.sum-dec-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.sum-dec-lbl{flex:1;font-size:13px;font-weight:500}
+.sum-dec-cnt{font-size:15px;font-weight:700;color:#1a1a2e}
+
+/* errors list */
+.err-list{max-height:200px;overflow-y:auto}
+.err-item{display:flex;align-items:center;gap:8px;padding:6px 8px;background:#fff7f7;border-radius:6px;margin-bottom:4px;border:1px solid #fecaca}
+.err-item .ei-name{flex:1;font-size:12px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.err-item .ei-retry{background:#ef4444;border:none;color:#fff;border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;font-weight:600}
+
+/* submit progress */
+.submit-progress-bar{height:4px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:10px}
+.submit-progress-fill{height:100%;background:linear-gradient(90deg,#1e6ff1,#4fc3f7);border-radius:4px;transition:width .3s}
+
+/* ── PHOTOS ── */
+.photos-section{margin-bottom:12px}
+.photos-header{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.photos-header .ph-label{font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.5px}
+.photos-header .ph-count{background:#1e3a5f;color:#93c5fd;font-size:11px;font-weight:700;padding:1px 7px;border-radius:8px}
+.photo-grid{display:flex;gap:8px;flex-wrap:wrap}
+.photo-thumb{width:100px;height:80px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid #e2e8f0;transition:all .15s;background:#f1f5f9}
+.photo-thumb:hover{border-color:#4fc3f7;transform:scale(1.04)}
+.photos-loading{color:#94a3b8;font-size:12px;padding:4px 0}
+.photos-empty{color:#94a3b8;font-size:12px;padding:4px 0;font-style:italic}
+
+/* ── LIGHTBOX ── */
+.lb{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:999;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;overflow:hidden}
+.lb.open{display:flex}
+.lb-img-wrap{position:relative;display:flex;align-items:center;justify-content:center;width:94vw;height:82vh;overflow:hidden;border-radius:8px}
+.lb-img-wrap img{max-width:94vw;max-height:82vh;object-fit:contain;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,.6);transform-origin:center center;cursor:zoom-in;user-select:none;-webkit-user-drag:none;will-change:transform}
+.lb-img-wrap img.lb-zoomed{cursor:move}
+.lb-close{position:absolute;top:14px;right:18px;color:#fff;font-size:28px;cursor:pointer;background:none;border:none;line-height:1;z-index:10}
+.lb-bottom{display:flex;gap:8px;align-items:center;margin-top:4px}
+.lb-nav{display:flex;gap:8px;align-items:center}
+.lb-nav button,.lb-zoom-btn{background:rgba(255,255,255,.15);border:none;color:#fff;font-size:18px;padding:7px 14px;border-radius:8px;cursor:pointer;line-height:1}
+.lb-nav button:hover,.lb-zoom-btn:hover{background:rgba(255,255,255,.3)}
+.lb-counter{color:#94a3b8;font-size:13px;min-width:40px;text-align:center}
+.lb-zoom-level{color:#64748b;font-size:12px;min-width:38px;text-align:center;font-variant-numeric:tabular-nums}
+.lb-sep{width:1px;height:20px;background:rgba(255,255,255,.15);margin:0 4px}
+.lb-zoom-hint{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.35);font-size:11px;pointer-events:none;white-space:nowrap}
+
+/* ── CUSTOM FIELDS ── */
+.custom-fields{margin-bottom:10px}
+.cf-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid #f1f5f9}
+.cf-row:last-child{border-bottom:none}
+.cf-key{font-size:11px;color:#94a3b8;min-width:160px;flex-shrink:0}
+.cf-val{font-size:12px;color:#1a1a2e;font-weight:500;word-break:break-word}
+.cf-val.yes{color:#16a34a;font-weight:700}
+.cf-val.no{color:#94a3b8}
+
+/* ── KEYBOARD HINTS ── */
+.kb-hints{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;margin-bottom:4px}
+.kb-hint{display:flex;align-items:center;gap:3px;font-size:11px;color:#64748b}
+.kb-key{background:#f1f5f9;border:1px solid #cbd5e1;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600;color:#475569;font-family:monospace}
+
+/* util */
+.hidden{display:none!important}
+.spin{animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-wrap{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px;color:#64748b;font-size:14px}
+
+/* bug report modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:none;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-box{background:#fff;border-radius:14px;padding:28px 28px 22px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal-box h3{margin:0 0 4px;font-size:16px;color:#1e293b}
+.modal-box p{margin:0 0 16px;font-size:13px;color:#64748b}
+.modal-box label{display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:4px}
+.modal-box select,.modal-box textarea,.modal-box input[type=text]{width:100%;box-sizing:border-box;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:13px;color:#1e293b;font-family:inherit;margin-bottom:12px;resize:vertical}
+.modal-box textarea{min-height:90px}
+.modal-box select:focus,.modal-box textarea:focus,.modal-box input[type=text]:focus{outline:none;border-color:#3b82f6}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+.modal-actions .btn-cancel{background:#f1f5f9;color:#475569;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:13px}
+.modal-actions .btn-send{background:#1e6ff1;color:#fff;border:none;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:13px;font-weight:600}
+.modal-actions .btn-send:disabled{opacity:.5;cursor:default}
+.modal-sent{text-align:center;padding:10px 0 4px;color:#16a34a;font-size:14px;font-weight:600;display:none}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ LOGIN ═══════════════ -->
+<div id="scr-login" class="screen active">
+<div class="login-box">
+  <h2>ActiveMap Reviewer</h2>
+  <p>Система проверки заданий — Префектура САО</p>
+  <p id="app-version" style="color:#94a3b8;font-size:11px;margin-top:4px"></p>
+  <div class="form-group">
+    <label>Логин</label>
+    <input id="li-login" type="text" placeholder="login" autocomplete="username">
+  </div>
+  <div class="form-group">
+    <label>Пароль</label>
+    <input id="li-pass" type="password" placeholder="••••••" autocomplete="current-password">
+  </div>
+  <div class="login-err" id="li-err"></div>
+  <button class="btn btn-primary" id="li-btn" onclick="doLogin()" style="margin-top:8px">Войти</button>
+</div>
+</div>
+
+
+<!-- ═══════════════ SETUP ═══════════════ -->
+<div id="scr-setup" class="screen">
+<div class="topbar">
+  <span class="logo">Active<span>Map</span> Reviewer</span>
+  <span class="topbar-info" id="setup-login-info"></span>
+  <button class="top-btn" onclick="showHist()">📋 История</button>
+</div>
+<div class="content">
+
+  <!-- BLOCK 1: Что проверяем -->
+  <div class="setup-block">
+    <h3><span class="block-num">1</span>Что проверяем</h3>
+    <div class="field">
+      <label>Вид задания</label>
+      <input id="type-search" type="text" placeholder="Поиск вида работ..." oninput="filterTypes(this.value)" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Выбранный тип <span id="type-chosen-lbl" style="color:#1e6ff1;font-size:11px;font-weight:600"></span></label>
+      <select id="type-select" size="5" style="height:140px;border-radius:8px;border:1.5px solid #e2e8f0;width:100%;font-size:13px;padding:4px">
+        <option value="">Загрузка типов...</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Этап (статус)</label>
+      <select id="status-select">
+        <option value="">Загрузка...</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Стадия карточки</label>
+      <select id="stage-select">
+        <option value="1">В работе (активные)</option>
+        <option value="2">Завершено</option>
+        <option value="">Все стадии</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- BLOCK 2: Фильтры -->
+  <div class="setup-block">
+    <h3><span class="block-num">2</span>Фильтры</h3>
+    <div class="field">
+      <label>Назначено организации</label>
+      <div class="org-wrap">
+        <div class="org-inp-row">
+          <input id="org-inp" type="text" placeholder="🌐 Все организации" oninput="onOrgInput(this.value)" onfocus="openOrgDd()" autocomplete="off">
+          <button class="org-clr" id="org-clr" onclick="clearOrg()" title="Сбросить">✕</button>
+        </div>
+        <div class="org-dd" id="org-dd"></div>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field" style="margin-bottom:0">
+        <label>Дата от</label>
+        <input id="date-from" type="date">
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Дата до</label>
+        <input id="date-to" type="date">
+      </div>
+    </div>
+  </div>
+
+  <!-- BLOCK 3: Кнопки решений -->
+  <div class="setup-block">
+    <h3><span class="block-num">3</span>Кнопки решений</h3>
+    <div class="btn-cfg-list" id="btn-cfg-list"></div>
+    <div class="add-btn-row">
+      <button class="add-btn" onclick="addBtnCfg()" id="add-btn-cfg">+ Добавить кнопку</button>
+    </div>
+  </div>
+
+  <!-- START -->
+  <div class="setup-block setup-action">
+    <button class="btn btn-primary" onclick="startReview()">Начать проверку →</button>
+  </div>
+
+</div>
+</div>
+
+<!-- ═══════════════ VIEWER ═══════════════ -->
+<div id="scr-viewer" class="screen">
+<div class="topbar">
+  <span class="logo">Active<span>Map</span></span>
+  <span class="topbar-info" id="viewer-task-info">Загрузка...</span>
+  <div class="stats-bar" id="stats-bar" style="display:none">
+    <div class="stat-chip ok" id="stat-ok">✅ 0</div>
+    <div class="stat-chip pend" id="stat-pend">⏳ 0</div>
+    <div class="stat-chip err" id="stat-err" style="display:none">❌ 0</div>
+    <div class="stat-chip skip" id="stat-skip" style="display:none">⏭ 0</div>
+  </div>
+  <span id="topbar-progress" style="font-size:12px;color:#94a3b8"></span>
+  <button class="top-btn" onclick="reloadTasks()" id="btn-reload" title="Перезагрузить список заданий">🔄 Обновить</button>
+  <button class="top-btn" onclick="showHist()">📋 История</button>
+  <button class="top-btn" onclick="showBugReport()" title="Сообщить об ошибке">🐛 Ошибка</button>
+  <button class="top-btn" onclick="goSetup()">⚙ Настройки</button>
+</div>
+<div class="content">
+<div class="viewer-inner">
+  <div id="task-loader" class="loader-wrap"><span class="spin">⚙</span> <span id="task-loader-text">Загрузка заданий...</span></div>
+  <div id="task-card-wrap" class="hidden">
+
+    <div class="task-card">
+      <div class="task-card-header">
+        <div class="task-num" id="tc-num"></div>
+        <div class="task-title" id="tc-title"></div>
+        <div class="task-badge-row">
+          <span class="task-badge badge-type" id="tc-type"></span>
+          <span class="task-badge badge-org" id="tc-org"></span>
+          <span class="task-badge badge-status" id="tc-status"></span>
+          <span class="task-badge badge-date" id="tc-date"></span>
+        </div>
+      </div>
+      <div class="task-card-body">
+        <div class="submit-pill none" id="submit-pill">⏳ Отправляется...</div>
+        <!-- Фотографии -->
+        <div class="photos-section" id="tc-photos-wrap">
+          <div class="photos-header">
+            <span class="ph-label">Фотографии</span>
+            <span class="ph-count" id="tc-photo-count">0</span>
+          </div>
+          <div id="tc-photos"><div class="photos-loading">⏳ Загрузка фото...</div></div>
+        </div>
+        <!-- Настраиваемые поля -->
+        <div class="custom-fields" id="tc-custom-fields"></div>
+        <!-- Описание -->
+        <div class="task-desc" id="tc-desc"></div>
+        <div class="task-meta-grid" id="tc-meta"></div>
+        <div class="decision-area">
+          <div class="decision-label">Решение:</div>
+          <div class="decision-btns" id="decision-btns"></div>
+          <div class="kb-hints" id="kb-hints"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-row" style="margin-top:12px">
+      <button class="nav-btn" onclick="navigate(-1)" id="btn-prev">← Назад</button>
+      <button class="nav-btn" onclick="navigate(1)" id="btn-next">Вперёд →</button>
+      <button class="nav-btn finish-btn" onclick="finishReview()" id="btn-finish" style="display:none">Завершить ✓</button>
+    </div>
+    <div style="margin-top:8px">
+      <div class="submit-progress-bar"><div class="submit-progress-fill" id="submit-fill" style="width:0%"></div></div>
+      <div style="text-align:center;font-size:11px;color:#94a3b8;margin-top:4px" id="submit-progress-text"></div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+
+<!-- ═══════════════ SUMMARY ═══════════════ -->
+<div id="scr-summary" class="screen">
+<div class="topbar">
+  <span class="logo">Active<span>Map</span> Reviewer</span>
+  <span class="topbar-info">Итоги проверки</span>
+  <button class="top-btn" onclick="goSetup()">← Новая сессия</button>
+</div>
+<div class="content">
+
+  <div class="sum-block">
+    <h3>Статистика</h3>
+    <div class="sum-stat-grid">
+      <div class="sum-stat"><div class="n" id="sum-total">0</div><div class="l">Всего</div></div>
+      <div class="sum-stat"><div class="n" id="sum-decided" style="color:#16a34a">0</div><div class="l">Решений</div></div>
+      <div class="sum-stat"><div class="n" id="sum-skipped" style="color:#64748b">0</div><div class="l">Пропущено</div></div>
+    </div>
+    <div id="sum-dec-breakdown"></div>
+  </div>
+
+  <div class="sum-block" id="sum-submit-block">
+    <h3>Отправка статусов</h3>
+    <div class="sum-stat-grid" style="grid-template-columns:1fr 1fr 1fr">
+      <div class="sum-stat"><div class="n" id="sum-s-ok" style="color:#16a34a">0</div><div class="l">Отправлено</div></div>
+      <div class="sum-stat"><div class="n" id="sum-s-pend" style="color:#1e6ff1">0</div><div class="l">В очереди</div></div>
+      <div class="sum-stat"><div class="n" id="sum-s-err" style="color:#ef4444">0</div><div class="l">Ошибок</div></div>
+    </div>
+    <div class="submit-progress-bar" style="height:6px"><div class="submit-progress-fill" id="sum-fill" style="width:0%"></div></div>
+    <div id="sum-err-list" class="err-list" style="margin-top:10px"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btn-primary" onclick="retryFailed()" id="btn-retry" style="display:none">Повторить ошибки</button>
+      <button class="btn" style="background:#f1f5f9;color:#475569;border:1.5px solid #e2e8f0" onclick="sendRemaining()">Отправить оставшиеся</button>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ═══════════════ BUG REPORT MODAL ═══════════════ -->
+<div class="modal-overlay" id="bug-modal" onclick="hideBugReport(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h3>🐛 Сообщить об ошибке</h3>
+    <p>Опишите проблему — мы её исправим в следующем обновлении</p>
+    <label>Тип проблемы</label>
+    <select id="br-type">
+      <option value="photo">Не загружаются фотографии</option>
+      <option value="status">Статус не меняется / не отправляется</option>
+      <option value="task">Задание отображается неверно</option>
+      <option value="auth">Проблема с авторизацией</option>
+      <option value="crash">Приложение не запускается</option>
+      <option value="other">Другое</option>
+    </select>
+    <label>Описание (что произошло, что ожидали)</label>
+    <textarea id="br-desc" placeholder="Например: при нажатии кнопки «Утверждено» ничего не происходит, в консоли ошибка 403..."></textarea>
+    <label>Текущее задание (если связано)</label>
+    <input type="text" id="br-taskno" placeholder="Номер задания #XXXXXXX (необязательно)">
+    <div class="modal-sent" id="br-sent">✅ Отчёт сохранён. Спасибо!</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="hideBugReport()">Отмена</button>
+      <button class="btn-send" id="br-btn" onclick="submitBugReport()">Отправить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ LIGHTBOX ═══════════════ -->
+<div class="lb" id="lb" onclick="lbClose(event)">
+  <button class="lb-close" onclick="closeLb()">✕</button>
+  <div class="lb-img-wrap" id="lb-wrap" onclick="event.stopPropagation()">
+    <img id="lb-img" src="" alt="">
+    <span class="lb-zoom-hint" id="lb-hint">Скролл — зум · Двойной клик — 2.5× · Тащи для перемещения</span>
+  </div>
+  <div class="lb-bottom" onclick="event.stopPropagation()">
+    <div class="lb-nav">
+      <button onclick="lbNav(-1)" title="Предыдущее фото">‹</button>
+      <span class="lb-counter" id="lb-counter"></span>
+      <button onclick="lbNav(1)" title="Следующее фото">›</button>
+    </div>
+    <div class="lb-sep"></div>
+    <button class="lb-zoom-btn" onclick="lbZoomStep(-1)" title="Уменьшить (−)">−</button>
+    <span class="lb-zoom-level" id="lb-zoom-level">100%</span>
+    <button class="lb-zoom-btn" onclick="lbZoomStep(1)" title="Увеличить (+)">+</button>
+    <button class="lb-zoom-btn" onclick="lbResetZoom()" title="Сбросить масштаб (0)">⊙</button>
+  </div>
+</div>
+
+<!-- ═══════════════ HISTORY DRAWER ═══════════════ -->
+<div class="hist-overlay" id="hist-overlay" onclick="hideHist()"></div>
+<div class="hist-drawer" id="hist-drawer">
+  <div class="hist-head">
+    <h4>📋 История проверки</h4>
+    <button class="hist-close" onclick="hideHist()">✕</button>
+  </div>
+  <div class="hist-list" id="hist-list"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+var tasks=[], idx=0;
+var decisions={};         // taskId -> btnIdx | -1 (skip)
+var actionButtons=[];     // [{label,statusId,color}]
+var allOrgs=[];
+var selectedOrgId=null;
+var allStatuses=[];
+var allTypeGroups=[];
+var allTypesFlat=[];
+var selectedTypeId=null;
+var selectedTypeName='';
+
+// Task detail cache
+var taskDetailCache={};   // taskId -> {photos:[...], customFields:[...]}
+var taskDetailLoading={};
+
+// Lightbox state
+var lbPhotos=[];
+var lbCurIdx=0;
+
+// Background submit queue
+var submitStatus={};   // taskId -> 'q'|'ok'|'err'
+var submitQueue=[];
+var submitRunning=false;
+var SUBMIT_GAP=400;
+
+var COLORS=['#16a34a','#ea580c','#1e6ff1','#7c3aed','#dc2626'];
+
+// ═══════════════════════════════════════════════════════════
+//  SCREEN MANAGEMENT
+// ═══════════════════════════════════════════════════════════
+function show(id){
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});
+  document.getElementById(id).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  LOGIN
+// ═══════════════════════════════════════════════════════════
+document.addEventListener('keydown',function(e){
+  var tag=e.target.tagName;
+  if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA') return;
+
+  // Логин
+  if(e.key==='Enter'&&document.getElementById('scr-login').classList.contains('active')){doLogin();return}
+
+  // Лайтбокс
+  var lb=document.getElementById('lb');
+  if(lb.classList.contains('open')){
+    if(e.key==='Escape'||e.key==='Enter') closeLb();
+    else if(e.key==='ArrowLeft') lbNav(-1);
+    else if(e.key==='ArrowRight') lbNav(1);
+    else if(e.key==='+'||e.key==='='||e.key===']') lbZoomStep(1);
+    else if(e.key==='-'||e.key==='['||e.key==='_') lbZoomStep(-1);
+    else if(e.key==='0') lbResetZoom();
+    return;
+  }
+
+  // Просмотр заданий
+  if(!document.getElementById('scr-viewer').classList.contains('active')) return;
+  if(!tasks.length) return;
+  var t=tasks[idx];
+  if(!t) return;
+
+  // Цифры 1-9: нажать кнопку решения → автопереход вперёд
+  var num=parseInt(e.key,10);
+  if(num>=1&&num<=actionButtons.length){
+    e.preventDefault(); decide(t.id, num-1); navigate(1); return;
+  }
+  // S / Ы — пропустить → автопереход вперёд
+  if(e.key==='s'||e.key==='S'||e.key==='ы'||e.key==='Ы'){
+    e.preventDefault(); decide(t.id,-1); navigate(1); return;
+  }
+  // Стрелки — навигация вручную
+  if(e.key==='ArrowRight') navigate(1);
+  if(e.key==='ArrowLeft')  navigate(-1);
+  // Escape — закрыть лайтбокс если открыт
+  if(e.key==='Escape') closeLb();
+});
+
+function doLogin(){
+  var login=document.getElementById('li-login').value.trim();
+  var pass=document.getElementById('li-pass').value;
+  var btn=document.getElementById('li-btn');
+  var err=document.getElementById('li-err');
+  if(!login||!pass){showErr(err,'Введите логин и пароль');return}
+  btn.disabled=true; btn.textContent='Вход...'; err.style.display='none';
+  fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({login:login,password:pass})})
+  .then(function(r){
+    if(!r.ok) return r.json().then(function(d){throw new Error(d.message||d.error||('Ошибка '+r.status))});
+    return r.json();
+  })
+  .then(function(){
+    document.getElementById('setup-login-info').textContent='Пользователь: '+login;
+    loadSetupData();
+    show('scr-setup');
+  })
+  .catch(function(e){
+    showErr(err,e.message||'Ошибка авторизации');
+    btn.disabled=false; btn.textContent='Войти';
+  });
+}
+
+function showErr(el,msg){el.textContent=msg;el.style.display='block'}
+
+// ═══════════════════════════════════════════════════════════
+//  SETUP DATA LOADING
+// ═══════════════════════════════════════════════════════════
+function loadSetupData(){
+  loadStatuses();
+  loadTypes();
+  loadOrgs();
+  initBtnCfg();
+}
+
+function loadStatuses(){
+  fetch('/proxy/statuses?apiVersion=2.0')
+  .then(function(r){return r.json()})
+  .then(function(d){
+    var items=Array.isArray(d)?d:(d.data||d.items||d.statuses||[]);
+    allStatuses=items;
+    var sel=document.getElementById('status-select');
+    sel.innerHTML='';
+    items.forEach(function(s){
+      var n=s.name||s.title||String(s.id);
+      var o=document.createElement('option');
+      o.value=String(s.id); o.textContent=n;
+      if(n.toLowerCase().indexOf('выполн')>=0) o.selected=true;
+      sel.appendChild(o);
+    });
+    if(!sel.value&&items.length) sel.selectedIndex=0;
+  })
+  .catch(function(e){console.error('statuses',e)});
+}
+
+function loadTypes(){
+  var sel=document.getElementById('type-select');
+  sel.innerHTML='<option value="" disabled>Загрузка...</option>';
+  // Try compressed endpoint first
+  fetch('/proxy/types/compressed?apiVersion=2.0')
+  .then(function(r){
+    if(!r.ok) throw new Error('compressed failed');
+    return r.json();
+  })
+  .then(parseTypeGroups)
+  .catch(function(){
+    return fetch('/proxy/types?apiVersion=2.0')
+      .then(function(r){return r.json()})
+      .then(function(d){
+        var items=Array.isArray(d)?d:(d.data||d.items||d.types||[]);
+        allTypeGroups=[{groupName:'Виды работ',types:items.map(function(t){
+          return {id:t.id,name:t.name||t.title||String(t.id)};
+        })}];
+        allTypesFlat=allTypeGroups[0].types;
+        renderTypeSelect('');
+      });
+  });
+}
+
+function parseTypeGroups(d){
+  allTypeGroups=[]; allTypesFlat=[];
+  var raw=d;
+  // Handle various API response shapes
+  if(Array.isArray(raw)){
+    raw.forEach(function(g){
+      var gname=g.name||g.title||g.groupName||'Прочее';
+      var children=g.children||g.items||g.types||[];
+      if(!Array.isArray(children)||!children.length){
+        // Flat item in array
+        allTypeGroups.push({groupName:'',types:[{id:g.id,name:g.name||g.title||String(g.id)}]});
+      } else {
+        var types=children.map(function(t){return{id:t.id,name:t.name||t.title||String(t.id)};});
+        allTypeGroups.push({groupName:gname,types:types});
+        types.forEach(function(t){allTypesFlat.push(t)});
+      }
+    });
+    // Flatten single-item groups
+    if(allTypesFlat.length===0){
+      allTypesFlat=raw.map(function(r){return{id:r.id,name:r.name||r.title||String(r.id)};});
+      allTypeGroups=[{groupName:'',types:allTypesFlat}];
+    }
+  } else {
+    var items=d.data||d.items||d.types||[];
+    allTypesFlat=items.map(function(t){return{id:t.id,name:t.name||t.title||String(t.id)};});
+    allTypeGroups=[{groupName:'',types:allTypesFlat}];
+  }
+  renderTypeSelect('');
+}
+
+function renderTypeSelect(query){
+  var sel=document.getElementById('type-select');
+  sel.innerHTML='';
+  var q=query.toLowerCase();
+  var matched=0;
+  allTypeGroups.forEach(function(g){
+    var types=g.types.filter(function(t){
+      return !q||t.name.toLowerCase().indexOf(q)>=0;
+    });
+    if(!types.length) return;
+    if(g.groupName){
+      var og=document.createElement('optgroup');
+      og.label=g.groupName;
+      types.forEach(function(t){
+        var o=document.createElement('option');
+        o.value=String(t.id); o.textContent=t.name;
+        if(selectedTypeId&&String(t.id)===String(selectedTypeId)) o.selected=true;
+        og.appendChild(o); matched++;
+      });
+      sel.appendChild(og);
+    } else {
+      types.forEach(function(t){
+        var o=document.createElement('option');
+        o.value=String(t.id); o.textContent=t.name;
+        if(selectedTypeId&&String(t.id)===String(selectedTypeId)) o.selected=true;
+        sel.appendChild(o); matched++;
+      });
+    }
+  });
+  if(!matched) sel.innerHTML='<option value="" disabled>Ничего не найдено</option>';
+  // Auto-select default
+  if(!selectedTypeId) autoSelectType('абп');
+}
+
+function autoSelectType(query){
+  var q=query.toLowerCase();
+  var found=allTypesFlat.find(function(t){return t.name.toLowerCase().indexOf(q)>=0});
+  if(found) selectTypeById(found.id);
+}
+
+function filterTypes(q){
+  renderTypeSelect(q);
+}
+
+document.addEventListener('DOMContentLoaded',function(){
+  var sel=document.getElementById('type-select');
+  if(sel){
+    sel.addEventListener('change',function(){
+      var id=sel.value;
+      var t=allTypesFlat.find(function(t){return String(t.id)===String(id)});
+      selectedTypeId=id;
+      selectedTypeName=t?t.name:'';
+      document.getElementById('type-chosen-lbl').textContent=selectedTypeName?('✓ '+selectedTypeName):'';
+    });
+  }
+});
+
+function selectTypeById(id){
+  var sel=document.getElementById('type-select');
+  for(var i=0;i<sel.options.length;i++){
+    if(sel.options[i].value===String(id)){
+      sel.options[i].selected=true;
+      selectedTypeId=id;
+      var t=allTypesFlat.find(function(t){return String(t.id)===String(id)});
+      selectedTypeName=t?t.name:'';
+      document.getElementById('type-chosen-lbl').textContent=selectedTypeName?('✓ '+selectedTypeName):'';
+      return;
+    }
+  }
+}
+
+// ─── ORG FILTER ───
+// Which param name to use when filtering tasks by org (detected on load)
+var orgParamName='contractorId';
+
+function loadOrgs(){
+  // Try endpoints in order: contractors, organizations, executors
+  var endpoints=[
+    '/proxy/contractors?apiVersion=2.0',
+    '/proxy/organizations?apiVersion=2.0',
+    '/proxy/executors?apiVersion=2.0'
+  ];
+  var paramNames=['contractorId','organizationId','executorId'];
+  function tryNext(i){
+    if(i>=endpoints.length){allOrgs=[];return;}
+    fetch(endpoints[i])
+    .then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    })
+    .then(function(d){
+      var items=Array.isArray(d)?d:(d.data||d.items||d.contractors||d.organizations||d.executors||[]);
+      if(!items.length) throw new Error('empty');
+      allOrgs=items;
+      orgParamName=paramNames[i];
+      console.log('[orgs] loaded '+items.length+' from '+endpoints[i]+', param='+orgParamName);
+    })
+    .catch(function(){tryNext(i+1)});
+  }
+  tryNext(0);
+}
+
+function onOrgInput(v){
+  showOrgDd(v);
+}
+
+function openOrgDd(){
+  showOrgDd(document.getElementById('org-inp').value);
+}
+
+function showOrgDd(query){
+  var dd=document.getElementById('org-dd');
+  var q=(query||'').toLowerCase();
+  var filtered=q?allOrgs.filter(function(o){
+    var n=o.name||o.title||'';
+    return n.toLowerCase().indexOf(q)>=0;
+  }):allOrgs.slice(0,80);
+  var html='<div class="org-opt all-opt" onclick="clearOrg()">🌐 Все организации</div>';
+  filtered.forEach(function(o){
+    var name=o.name||o.title||String(o.id);
+    html+='<div class="org-opt" onclick="selectOrg('+o.id+')">'+esc(name)+'</div>';
+  });
+  dd.innerHTML=html;
+  dd.classList.add('open');
+}
+
+function hideOrgDd(){
+  document.getElementById('org-dd').classList.remove('open');
+}
+
+function selectOrg(id){
+  var org=allOrgs.find(function(o){return o.id==id});
+  var name=org?(org.name||org.title||String(id)):String(id);
+  selectedOrgId=id;
+  document.getElementById('org-inp').value=name;
+  var clr=document.getElementById('org-clr');
+  clr.style.display='flex';
+  hideOrgDd();
+}
+
+function clearOrg(){
+  selectedOrgId=null;
+  document.getElementById('org-inp').value='';
+  document.getElementById('org-clr').style.display='none';
+  hideOrgDd();
+}
+
+document.addEventListener('click',function(e){
+  var wrap=document.querySelector('.org-wrap');
+  if(wrap&&!wrap.contains(e.target)) hideOrgDd();
+});
+
+// ─── BUTTON CONFIG ───
+function initBtnCfg(){
+  actionButtons=[
+    {label:'Утверждено',statusId:'',color:'#16a34a'},
+    {label:'Доработка',statusId:'',color:'#ea580c'}
+  ];
+  renderBtnCfg();
+  loadStatusesForBtns();
+}
+
+function loadStatusesForBtns(){
+  // Already loaded by loadStatuses; re-render after load
+  if(allStatuses.length) renderBtnCfg();
+  else setTimeout(loadStatusesForBtns,500);
+}
+
+function renderBtnCfg(){
+  var list=document.getElementById('btn-cfg-list');
+  list.innerHTML='';
+  actionButtons.forEach(function(b,i){
+    var row=document.createElement('div');
+    row.className='btn-cfg-row';
+    var statusOpts='<option value="">-- Статус --</option>';
+    allStatuses.forEach(function(s){
+      var n=s.name||s.title||String(s.id);
+      var sel=(String(s.id)===String(b.statusId))||(!b.statusId&&n.toLowerCase().indexOf(b.label.toLowerCase().split(' ')[0])>=0);
+      statusOpts+='<option value="'+s.id+'"'+(sel?' selected':'')+'>'+esc(n)+'</option>';
+    });
+    row.innerHTML='<span class="btn-cfg-num">'+(i+1)+'</span>'+
+      '<input class="btn-cfg-label" type="text" value="'+esc(b.label)+'" placeholder="Название" oninput="updateBtn('+i+',\'label\',this.value)">'+
+      '<select class="btn-cfg-status" onchange="updateBtn('+i+',\'statusId\',this.value)">'+statusOpts+'</select>'+
+      '<input class="btn-cfg-color" type="color" value="'+b.color+'" oninput="updateBtn('+i+',\'color\',this.value)">'+
+      (actionButtons.length>1?'<button class="btn-cfg-del" onclick="delBtn('+i+')" title="Удалить">✕</button>':'');
+    list.appendChild(row);
+  });
+  var addBtn=document.getElementById('add-btn-cfg');
+  if(addBtn) addBtn.style.display=actionButtons.length>=5?'none':'';
+}
+
+function updateBtn(i,key,val){
+  if(actionButtons[i]) actionButtons[i][key]=val;
+}
+
+function addBtnCfg(){
+  if(actionButtons.length>=5) return;
+  actionButtons.push({label:'Кнопка '+(actionButtons.length+1),statusId:'',color:COLORS[actionButtons.length%COLORS.length]});
+  renderBtnCfg();
+}
+
+function delBtn(i){
+  actionButtons.splice(i,1);
+  renderBtnCfg();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  START REVIEW
+// ═══════════════════════════════════════════════════════════
+function startReview(){
+  var typeId=document.getElementById('type-select').value;
+  var statusId=document.getElementById('status-select').value;
+  if(!typeId){alert('Выберите вид задания');return}
+  if(!statusId){alert('Выберите этап');return}
+  var validBtns=actionButtons.filter(function(b){return b.label.trim()&&b.statusId});
+  if(!validBtns.length){alert('Настройте хотя бы одну кнопку решения с выбранным статусом');return}
+  actionButtons=validBtns;
+
+  tasks=[]; idx=0; decisions={}; submitStatus={}; submitQueue=[];
+
+  show('scr-viewer');
+  document.getElementById('task-loader').style.display='flex';
+  document.getElementById('task-card-wrap').classList.add('hidden');
+
+  var stageId=document.getElementById('stage-select').value;
+  var url='/proxy/tasks?apiVersion=2.0&limit=500&type_id='+typeId+'&onlyStatus='+statusId;
+  if(stageId) url+='&stage='+stageId;
+  if(selectedOrgId) url+='&'+orgParamName+'='+selectedOrgId;
+  var df=document.getElementById('date-from').value;
+  var dt=document.getElementById('date-to').value;
+  if(df) url+='&dateFrom='+df;
+  if(dt) url+='&dateTo='+dt;
+  _lastTaskUrl=url;
+
+  fetch(url)
+  .then(function(r){return r.json()})
+  .then(function(d){
+    tasks=Array.isArray(d)?d:(d.data||d.items||d.tasks||[]);
+    var limitWarning=tasks.length>=500?' ⚠ Достигнут лимит 500 — возможно, не все задания загружены':'';
+    document.getElementById('task-loader-text').textContent='Загружено: '+tasks.length+' заданий'+limitWarning;
+    setTimeout(function(){ document.getElementById('task-loader').style.display='none'; }, 800);
+    if(tasks.length>=500){
+      console.warn('[LIMIT] Загружено 500 заданий — API лимит достигнут. Часть заданий может быть не загружена.');
+    }
+    if(!tasks.length){
+      document.getElementById('task-card-wrap').classList.remove('hidden');
+      document.getElementById('tc-title').textContent='Задания не найдены';
+      document.getElementById('tc-num').textContent='';
+      document.getElementById('tc-desc').textContent='Попробуйте изменить фильтры';
+      document.getElementById('tc-type').textContent='';
+      document.getElementById('tc-org').textContent='';
+      document.getElementById('tc-status').textContent='';
+      document.getElementById('tc-date').textContent='';
+      document.getElementById('tc-meta').innerHTML='';
+      document.getElementById('decision-btns').innerHTML='';
+      return;
+    }
+    document.getElementById('stats-bar').style.display='flex';
+    renderTask();
+  })
+  .catch(function(e){
+    document.getElementById('task-loader').style.display='none';
+    document.getElementById('task-card-wrap').classList.remove('hidden');
+    document.getElementById('tc-title').textContent='Ошибка загрузки';
+    document.getElementById('tc-desc').textContent=String(e);
+  });
+}
+
+// Перезагрузить список не уходя с экрана просмотра
+var _lastTaskUrl='';
+function reloadTasks(){
+  if(!_lastTaskUrl){alert('Сначала начните проверку через Настройки');return}
+  if(!confirm('Обновить список заданий?\nРешения в текущей сессии сохранятся в истории, но список начнётся заново.')) return;
+  var btn=document.getElementById('btn-reload');
+  btn.disabled=true; btn.textContent='⏳ Загрузка...';
+  decisions={}; submitStatus={}; submitQueue=[];
+  taskDetailCache={}; taskDetailLoading={};
+  tasks=[]; idx=0;
+  document.getElementById('task-loader').style.display='flex';
+  document.getElementById('task-card-wrap').classList.add('hidden');
+  fetch(_lastTaskUrl)
+  .then(function(r){return r.json()})
+  .then(function(d){
+    tasks=Array.isArray(d)?d:(d.data||d.items||d.tasks||[]);
+    document.getElementById('task-loader').style.display='none';
+    btn.disabled=false; btn.textContent='🔄 Обновить';
+    if(tasks.length>=500) console.warn('[LIMIT] Лимит 500 достигнут при перезагрузке.');
+    if(!tasks.length){
+      document.getElementById('tc-title').textContent='Заданий не найдено';
+      document.getElementById('task-card-wrap').classList.remove('hidden');
+      return;
+    }
+    document.getElementById('stats-bar').style.display='flex';
+    renderTask();
+  })
+  .catch(function(e){
+    document.getElementById('task-loader').style.display='none';
+    btn.disabled=false; btn.textContent='🔄 Обновить';
+    alert('Ошибка загрузки: '+e);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RENDER TASK
+// ═══════════════════════════════════════════════════════════
+function renderTask(){
+  if(!tasks.length) return;
+  var t=tasks[idx];
+  if(!t) return;
+  document.getElementById('task-card-wrap').classList.remove('hidden');
+
+  // Header
+  var taskNo = t.no||t.number||t.num||t.externalId||t.id||'';
+  document.getElementById('tc-num').textContent='Задание '+(idx+1)+' / '+tasks.length+(taskNo?' · #'+taskNo:'');
+  document.getElementById('tc-title').textContent=t.title||t.name||('Задание #'+t.id);
+  document.getElementById('tc-type').textContent=t.typeName||t.type||t.typeTitle||selectedTypeName;
+  document.getElementById('tc-org').textContent=t.contractorName||t.organizationName||t.organization||t.assignedTo||'';
+  document.getElementById('tc-status').textContent=t.statusName||t.status||t.stageTitle||'';
+  var dt=t.planDate||t.date||t.createdAt||t.created_at||'';
+  document.getElementById('tc-date').textContent=dt?('📅 '+fmtDate(dt)):'';
+
+  // Description
+  document.getElementById('tc-desc').textContent=t.description||t.text||t.body||'';
+
+  // Meta grid
+  var meta='';
+  var addr=t.address||t.objectAddress||t.location||'';
+  if(addr) meta+='<div class="task-meta-item"><div class="lbl">Адрес</div><div class="val">'+esc(addr)+'</div></div>';
+  // Номер убираем из meta — он уже в заголовке
+  var perf=t.performerName||t.performer||t.executorName||'';
+  if(perf) meta+='<div class="task-meta-item"><div class="lbl">Исполнитель</div><div class="val">'+esc(perf)+'</div></div>';
+  var dist=t.districtName||t.district||t.region||'';
+  if(dist) meta+='<div class="task-meta-item"><div class="lbl">Район</div><div class="val">'+esc(dist)+'</div></div>';
+  document.getElementById('tc-meta').innerHTML=meta;
+
+  // Photos & custom fields — сначала сброс, потом загрузка деталей
+  document.getElementById('tc-photos').innerHTML='<div class="photos-loading">⏳ Загрузка фото...</div>';
+  document.getElementById('tc-photo-count').textContent='...';
+  document.getElementById('tc-custom-fields').innerHTML='';
+  fetchTaskDetail(t.id);
+
+  // Submit pill
+  updateSubmitPill(t.id);
+
+  // Buttons
+  renderDecisionBtns(t.id);
+
+  // Nav buttons
+  document.getElementById('btn-prev').disabled=(idx===0);
+  var last=(idx===tasks.length-1);
+  document.getElementById('btn-next').style.display=last?'none':'';
+  document.getElementById('btn-finish').style.display=last?'':'none';
+
+  // Topbar
+  document.getElementById('viewer-task-info').textContent=selectedTypeName||'';
+  document.getElementById('topbar-progress').textContent=(idx+1)+'/'+tasks.length;
+
+  updateTopStats();
+  renderHist();
+}
+
+// ── Загружаем детали задания (фото + кастомные поля) ──────────────────────
+function fetchTaskDetail(taskId){
+  if(taskDetailCache[taskId]){
+    renderPhotos(taskId, taskDetailCache[taskId].photos);
+    renderCustomFields(taskDetailCache[taskId].customFields);
+    return;
+  }
+  if(taskDetailLoading[taskId]) return;
+  taskDetailLoading[taskId]=true;
+
+  // Получаем photoCount из списка заданий (там может быть поле)
+  var taskInList=tasks.find(function(t){return t.id===taskId});
+  // num_main_photo — это ИНДЕКС главного фото, не количество! Не используем его здесь.
+  var pcFromList=taskInList
+    ?(taskInList.added_photo_count||taskInList.photoCount||taskInList.photosCount||
+      taskInList.photos_count||taskInList.countPhotos||taskInList.photo_count||0)
+    :0;
+
+  fetch('/proxy/tasks/'+taskId+'?apiVersion=2.0')
+  .then(function(r){return r.json()})
+  .then(function(d){
+    var detail=d.data||d.task||d;
+
+    // Фотографии — пробуем все варианты
+    var photos=[];
+    var numMain=detail.num_main_photo||0;
+    var numAdded=detail.added_photo_count||0;
+    // added_photo_count = общее кол-во фото; num_main_photo = индекс главного фото
+    var pc=numAdded||numMain||detail.photoCount||detail.photosCount||detail.photos_count||
+            detail.countPhotos||detail.photo_count||pcFromList||0;
+
+    var imgExts=['jpg','jpeg','png','gif','webp','bmp','heic','tiff','avif'];
+    if(Array.isArray(detail.photos)&&detail.photos.length){
+      photos=detail.photos.map(function(p,i){
+        if(typeof p==='string') return '/proxy/tasks/'+taskId+'/photos/'+(i+1);
+        return p.url||p.src||p.link||p.path||('/proxy/tasks/'+taskId+'/photos/'+(i+1));
+      });
+    }
+    if(!photos.length&&Array.isArray(detail.attachments)&&detail.attachments.length){
+      // Объекты вида {id, num, name, extension, deleted, ...}
+      photos=detail.attachments
+        .filter(function(a){
+          if(a.deleted) return false;
+          var ext=(a.extension||'').toLowerCase();
+          return imgExts.indexOf(ext)>=0||a.type==='photo'||
+                 (a.mimeType&&a.mimeType.indexOf('image')>=0)||a.url||a.src;
+        })
+        .map(function(a,i){
+          return a.url||a.src||a.path||('/proxy/tasks/'+taskId+'/photos/'+(a.num||i+1));
+        });
+    }
+    if(!photos.length&&pc>0){
+      for(var i=1;i<=pc;i++) photos.push('/proxy/tasks/'+taskId+'/photos/'+i);
+    }
+
+    // Кастомные поля
+    var cf=[];
+    var cfRaw=detail.customFields||detail.fields||detail.custom_fields||
+              detail.extraFields||detail.properties||detail.params||[];
+
+    // Словарь читаемых названий полей
+    var FIELD_NAMES={
+      'district':'Район','region':'Район','rayon':'Район',
+      'address':'Адрес','adres':'Адрес',
+      'organization':'Организация','org':'Организация',
+      'status':'Статус','stage':'Стадия',
+      'priority':'Приоритет',
+      'type':'Тип','vid':'Вид работы',
+      'comment':'Комментарий','note':'Примечание',
+      'executor':'Исполнитель','performer':'Исполнитель',
+      'deadline':'Срок','date':'Дата',
+      'privjazka_obiekta':'Привязка объекта',
+      'privyazka_obekta':'Привязка объекта',
+      'privjazka':'Привязка объекта',
+      'object':'Объект','obekt':'Объект'
+    };
+
+    function cleanFieldKey(k){
+      // Удаляем суффикс UUID: _xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+      var clean=k.replace(/_?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,'');
+      // Заменяем _ на пробелы и убираем лишние пробелы
+      clean=clean.replace(/_/g,' ').trim().toLowerCase();
+      // Ищем в словаре
+      return FIELD_NAMES[clean]||FIELD_NAMES[clean.replace(/\s+/g,'_')]||
+             // Капитализируем первое слово если не нашли
+             (clean.charAt(0).toUpperCase()+clean.slice(1));
+    }
+
+    function extractVal(v){
+      if(v===null||v===undefined) return '';
+      if(typeof v==='object'){
+        return v.value!==undefined?extractVal(v.value):
+               (v.name||v.title||v.text||v.label||'');
+      }
+      return String(v);
+    }
+
+    if(Array.isArray(cfRaw)){
+      cfRaw.forEach(function(f){
+        var name=f.title||f.label||(f.name?cleanFieldKey(f.name):'');
+        var rawVal=f.value!==undefined?f.value:(f.val!==undefined?f.val:'');
+        var val=extractVal(rawVal);
+        if(name&&val) cf.push({name:name,value:val});
+      });
+    } else if(cfRaw&&typeof cfRaw==='object'){
+      Object.keys(cfRaw).forEach(function(k){
+        var val=extractVal(cfRaw[k]);
+        if(val) cf.push({name:cleanFieldKey(k),value:val});
+      });
+    }
+
+    if(photos.length===0){
+      // Fallback: пробуем запросить фото 1 напрямую
+      probePhotos(taskId, 1, [], cf);
+    } else {
+      taskDetailCache[taskId]={photos:photos,customFields:cf};
+      if(tasks[idx]&&tasks[idx].id===taskId){
+        renderPhotos(taskId,photos);
+        renderCustomFields(cf);
+      }
+    }
+  })
+  .catch(function(e){
+    console.error('[task detail error]', taskId, e);
+    var photos=[];
+    if(pcFromList>0){
+      for(var i=1;i<=pcFromList;i++) photos.push('/proxy/tasks/'+taskId+'/photos/'+i);
+    }
+    taskDetailCache[taskId]={photos:photos,customFields:[]};
+    if(tasks[idx]&&tasks[idx].id===taskId){
+      renderPhotos(taskId,photos);
+      document.getElementById('tc-custom-fields').innerHTML='';
+    }
+  });
+}
+
+// Пробуем фото по номеру — если 200, добавляем и пробуем следующий
+function probePhotos(taskId, num, acc, cf){
+  if(num>15){ finalizePhotos(taskId, acc, cf); return; }
+  var url='/proxy/tasks/'+taskId+'/photos/'+num;
+  fetch(url,{method:'HEAD'}).then(function(r){
+    if(r.ok){
+      acc.push(url);
+      probePhotos(taskId, num+1, acc, cf);
+    } else {
+      finalizePhotos(taskId, acc, cf);
+    }
+  }).catch(function(){
+    finalizePhotos(taskId, acc, cf);
+  });
+}
+
+function finalizePhotos(taskId, photos, cf){
+  taskDetailCache[taskId]={photos:photos,customFields:cf||[]};
+  if(tasks[idx]&&tasks[idx].id===taskId){
+    renderPhotos(taskId,photos);
+    renderCustomFields(cf||[]);
+  }
+}
+
+function renderPhotos(taskId, photos){
+  var wrap=document.getElementById('tc-photos');
+  var countEl=document.getElementById('tc-photo-count');
+  countEl.textContent=photos.length;
+  if(!photos.length){
+    wrap.innerHTML='<div class="photos-empty">Фотографий нет</div>';
+    return;
+  }
+  var html='<div class="photo-grid">';
+  photos.forEach(function(url,i){
+    html+='<img class="photo-thumb" src="'+esc(url)+'" loading="lazy" '+
+      'onclick="openLb('+JSON.stringify(photos)+','+i+')" '+
+      'onerror="this.style.opacity=\'0.3\'">';
+  });
+  html+='</div>';
+  wrap.innerHTML=html;
+}
+
+function renderCustomFields(cf){
+  var el=document.getElementById('tc-custom-fields');
+  if(!cf||!cf.length){el.innerHTML='';return}
+  var html='';
+  cf.forEach(function(f){
+    var v=String(f.value||'');
+    var vl=v.toLowerCase();
+    var cls=(vl==='да')?'yes':(vl==='нет')?'no':'';
+    html+='<div class="cf-row"><span class="cf-key">'+esc(f.name)+'</span>'+
+      '<span class="cf-val '+cls+'">'+esc(v)+'</span></div>';
+  });
+  el.innerHTML=html;
+}
+
+// ── Лайтбокс с зумом ─────────────────────────────────────────────────────
+var lbZoom=1, lbDx=0, lbDy=0;
+var lbDragging=false, lbDragStart={x:0,y:0,dx:0,dy:0};
+var LB_ZOOM_MIN=1, LB_ZOOM_MAX=8;
+
+function lbApplyTransform(animate){
+  var img=document.getElementById('lb-img');
+  img.style.transition=animate?'transform .15s ease':'none';
+  img.style.transform='translate('+lbDx+'px,'+lbDy+'px) scale('+lbZoom+')';
+  img.classList.toggle('lb-zoomed', lbZoom>1);
+  document.getElementById('lb-zoom-level').textContent=Math.round(lbZoom*100)+'%';
+  var hint=document.getElementById('lb-hint');
+  if(hint) hint.style.opacity=lbZoom>1?'0':'1';
+}
+
+function lbResetZoom(animate){
+  lbZoom=1; lbDx=0; lbDy=0;
+  lbApplyTransform(animate!==false);
+}
+
+function lbZoomStep(dir){
+  var steps=[1,1.25,1.5,2,2.5,3,4,5,6,8];
+  var cur=lbZoom;
+  var i=0;
+  if(dir>0){
+    for(i=0;i<steps.length;i++) if(steps[i]>cur+0.05){lbZoom=steps[i];break}
+    if(i===steps.length) lbZoom=LB_ZOOM_MAX;
+  } else {
+    for(i=steps.length-1;i>=0;i--) if(steps[i]<cur-0.05){lbZoom=steps[i];break}
+    if(i<0) lbZoom=LB_ZOOM_MIN;
+  }
+  if(lbZoom<=1){lbDx=0;lbDy=0;}
+  lbApplyTransform(true);
+}
+
+// Скролл — зум от положения курсора
+document.addEventListener('DOMContentLoaded',function(){
+  var lb=document.getElementById('lb');
+  if(!lb) return;
+
+  lb.addEventListener('wheel',function(e){
+    if(!lb.classList.contains('open')) return;
+    e.preventDefault();
+    var wrap=document.getElementById('lb-wrap');
+    var rect=wrap.getBoundingClientRect();
+    var mx=e.clientX-rect.left-rect.width/2;
+    var my=e.clientY-rect.top-rect.height/2;
+    var factor=e.deltaY<0?1.15:0.87;
+    var newZoom=Math.max(LB_ZOOM_MIN,Math.min(LB_ZOOM_MAX,lbZoom*factor));
+    // Сдвигаем так, чтобы точка под курсором не уехала
+    var scale=newZoom/lbZoom;
+    lbDx=mx+(lbDx-mx)*scale;
+    lbDy=my+(lbDy-my)*scale;
+    lbZoom=newZoom;
+    if(lbZoom<=1){lbDx=0;lbDy=0;}
+    lbApplyTransform(false);
+  },{passive:false});
+
+  // Перетаскивание
+  var img=document.getElementById('lb-img');
+  img.addEventListener('mousedown',function(e){
+    if(lbZoom<=1) return;
+    e.stopPropagation(); e.preventDefault();
+    lbDragging=true;
+    lbDragStart={x:e.clientX,y:e.clientY,dx:lbDx,dy:lbDy};
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!lbDragging) return;
+    lbDx=lbDragStart.dx+(e.clientX-lbDragStart.x);
+    lbDy=lbDragStart.dy+(e.clientY-lbDragStart.y);
+    lbApplyTransform(false);
+  });
+  document.addEventListener('mouseup',function(){lbDragging=false;});
+
+  // Двойной клик — переключение зума
+  img.addEventListener('dblclick',function(e){
+    e.stopPropagation();
+    if(lbZoom>1){ lbResetZoom(); }
+    else { lbZoom=2.5; lbDx=0; lbDy=0; lbApplyTransform(true); }
+  });
+});
+
+function openLb(photos, i){
+  lbPhotos=photos; lbCurIdx=i;
+  lbResetZoom(false);
+  document.getElementById('lb').classList.add('open');
+  lbShow();
+}
+function closeLb(){
+  document.getElementById('lb').classList.remove('open');
+  lbResetZoom(false);
+}
+function lbClose(e){if(e.target===document.getElementById('lb'))closeLb();}
+function lbNav(dir){
+  lbCurIdx=(lbCurIdx+dir+lbPhotos.length)%lbPhotos.length;
+  lbResetZoom(false);
+  lbShow();
+}
+function lbShow(){
+  document.getElementById('lb-img').src=lbPhotos[lbCurIdx];
+  document.getElementById('lb-counter').textContent=(lbCurIdx+1)+' / '+lbPhotos.length;
+}
+
+function updateSubmitPill(taskId){
+  var pill=document.getElementById('submit-pill');
+  var st=submitStatus[taskId];
+  pill.className='submit-pill';
+  if(st==='q'){
+    pill.classList.add('pending'); pill.textContent='⏳ Отправляется...'; pill.style.display='inline-flex';
+  } else if(st==='ok'){
+    pill.classList.add('ok'); pill.textContent='✅ Статус изменён'; pill.style.display='inline-flex';
+  } else if(st==='err'){
+    pill.classList.add('err'); pill.textContent='❌ Ошибка отправки'; pill.style.display='inline-flex';
+  } else {
+    pill.style.display='none';
+  }
+}
+
+function renderDecisionBtns(taskId){
+  var area=document.getElementById('decision-btns');
+  area.innerHTML='';
+  var curDec=decisions[taskId];
+  actionButtons.forEach(function(b,i){
+    var btn=document.createElement('button');
+    btn.className='dec-btn'+(curDec===i?' active':'');
+    btn.style.background=b.color;
+    btn.textContent=(i+1)+'. '+b.label;
+    btn.setAttribute('data-dec-idx',String(i));
+    btn.onclick=function(){decide(taskId,i)};
+    area.appendChild(btn);
+  });
+  // Skip
+  var skip=document.createElement('button');
+  skip.className='dec-btn skip-btn'+(curDec===-1?' active':'');
+  skip.textContent='⏭ Пропустить';
+  skip.onclick=function(){decide(taskId,-1)};
+  area.appendChild(skip);
+
+  // Keyboard hints
+  var hints=document.getElementById('kb-hints');
+  if(hints){
+    var h='';
+    actionButtons.forEach(function(b,i){
+      h+='<span class="kb-hint"><span class="kb-key">'+(i+1)+'</span>'+b.label+'</span>';
+    });
+    h+='<span class="kb-hint"><span class="kb-key">S</span>Пропуск</span>';
+    h+='<span class="kb-hint"><span class="kb-key">← →</span>Навигация</span>';
+    hints.innerHTML=h;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  DECISIONS & QUEUE
+// ═══════════════════════════════════════════════════════════
+function decide(taskId,btnIdx){
+  decisions[taskId]=btnIdx;
+  // Visual highlight
+  document.querySelectorAll('.dec-btn').forEach(function(b){b.classList.remove('active')});
+  if(btnIdx===-1){
+    var skip=document.querySelector('.skip-btn');
+    if(skip) skip.classList.add('active');
+  } else {
+    var btn=document.querySelector('[data-dec-idx="'+btnIdx+'"]');
+    if(btn) btn.classList.add('active');
+  }
+  // Queue submission if real decision
+  // Если уже было успешно отправлено — позволяем переотправить (пользователь мог ошибиться)
+  if(btnIdx>=0 && btnIdx<actionButtons.length){
+    var statusId=actionButtons[btnIdx].statusId;
+    if(statusId){
+      submitStatus[taskId]='q';
+      if(!submitQueue.includes(taskId)) submitQueue.push(taskId);
+      kickQueue();
+      updateSubmitPill(taskId);
+    }
+  }
+  updateTopStats();
+  renderHist();
+}
+
+function kickQueue(){
+  if(submitRunning||!submitQueue.length) return;
+  submitRunning=true;
+  processNext();
+}
+
+function processNext(){
+  if(!submitQueue.length){submitRunning=false;updateTopStats();return}
+  var taskId=submitQueue.shift();
+  var btnIdx=decisions[taskId];
+  if(btnIdx===undefined||btnIdx<0||btnIdx>=actionButtons.length){
+    processNext(); return;
+  }
+  var statusId=actionButtons[btnIdx].statusId;
+  if(!statusId){processNext();return}
+  submitStatus[taskId]='q';
+  updateTopStats();
+  if(tasks[idx]&&tasks[idx].id==taskId) updateSubmitPill(taskId);
+  fetch('/patch/'+taskId,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({status_id:Number(statusId),statusId:Number(statusId)})})
+  .then(function(r){
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    submitStatus[taskId]='ok';
+  })
+  .catch(function(){
+    submitStatus[taskId]='err';
+  })
+  .then(function(){
+    if(tasks[idx]&&tasks[idx].id==taskId) updateSubmitPill(taskId);
+    updateTopStats(); renderHist();
+    setTimeout(processNext, SUBMIT_GAP);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  STATS BAR
+// ═══════════════════════════════════════════════════════════
+function updateTopStats(){
+  var ok=0,pend=0,err=0,skip=0;
+  tasks.forEach(function(t){
+    var d=decisions[t.id];
+    var s=submitStatus[t.id];
+    if(d===-1) skip++;
+    else if(d>=0){
+      if(s==='ok') ok++;
+      else if(s==='err') err++;
+      else pend++;
+    }
+  });
+  document.getElementById('stat-ok').textContent='✅ '+ok;
+  document.getElementById('stat-pend').textContent='⏳ '+pend;
+  document.getElementById('stat-err').textContent='❌ '+err;
+  document.getElementById('stat-skip').textContent='⏭ '+skip;
+  document.getElementById('stat-err').style.display=err?'flex':'none';
+  document.getElementById('stat-skip').style.display=skip?'flex':'none';
+
+  // Progress bar
+  var decided=Object.keys(decisions).length;
+  var pct=tasks.length?Math.round(decided/tasks.length*100):0;
+  document.getElementById('submit-fill').style.width=pct+'%';
+  document.getElementById('submit-progress-text').textContent=
+    decided?('Обработано: '+decided+' из '+tasks.length+' ('+pct+'%)'):'';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════════════
+function navigate(dir){
+  var newIdx=idx+dir;
+  if(newIdx<0||newIdx>=tasks.length) return;
+  idx=newIdx;
+  renderTask();
+}
+
+function goSetup(){show('scr-setup')}
+
+function finishReview(){
+  // Send any remaining
+  sendRemaining();
+  show('scr-summary');
+  renderSummary();
+}
+
+function sendRemaining(){
+  tasks.forEach(function(t){
+    var d=decisions[t.id];
+    if(d>=0&&d<actionButtons.length&&submitStatus[t.id]!=='ok'&&submitStatus[t.id]!=='q'){
+      submitStatus[t.id]='q';
+      submitQueue.push(t.id);
+    }
+  });
+  kickQueue();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  HISTORY
+// ═══════════════════════════════════════════════════════════
+function renderHist(){
+  var list=document.getElementById('hist-list');
+  if(!list) return;
+  var decided=tasks.filter(function(t){return decisions[t.id]!==undefined});
+  if(!decided.length){
+    list.innerHTML='<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">Ещё нет решений</div>';
+    return;
+  }
+  var html='';
+  decided.forEach(function(t,n){
+    var d=decisions[t.id];
+    var st=submitStatus[t.id];
+    var isCur=(tasks[idx]&&tasks[idx].id===t.id);
+    var decLabel=''; var decColor='#475569';
+    if(d===-1){decLabel='⏭ Пропуск';decColor='#475569';}
+    else if(d>=0&&d<actionButtons.length){decLabel=actionButtons[d].label;decColor=actionButtons[d].color;}
+    var subIcon=st==='ok'?'✅':st==='err'?'❌':st==='q'?'⏳':'';
+    var tidx=tasks.indexOf(t);
+    html+='<div class="hist-item'+(isCur?' current':'')+'" onclick="jumpTo('+tidx+')">'+
+      '<span class="hi-num">'+(n+1)+'</span>'+
+      '<span class="hi-name">'+esc(t.title||t.name||'Задание #'+t.id)+'</span>'+
+      '<span class="hi-dec" style="background:'+decColor+'">'+esc(decLabel)+'</span>'+
+      '<span class="hi-sub">'+subIcon+'</span>'+
+      '</div>';
+  });
+  list.innerHTML=html;
+}
+
+function jumpTo(i){
+  idx=i; renderTask(); hideHist();
+}
+
+function showHist(){
+  renderHist();
+  document.getElementById('hist-overlay').classList.add('open');
+  document.getElementById('hist-drawer').classList.add('open');
+}
+
+function hideHist(){
+  document.getElementById('hist-overlay').classList.remove('open');
+  document.getElementById('hist-drawer').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SUMMARY
+// ═══════════════════════════════════════════════════════════
+function renderSummary(){
+  var total=tasks.length;
+  var decided=tasks.filter(function(t){return decisions[t.id]!==undefined&&decisions[t.id]>=0}).length;
+  var skipped=tasks.filter(function(t){return decisions[t.id]===-1}).length;
+  document.getElementById('sum-total').textContent=total;
+  document.getElementById('sum-decided').textContent=decided;
+  document.getElementById('sum-skipped').textContent=skipped;
+
+  // Per-button breakdown
+  var html='';
+  actionButtons.forEach(function(b,i){
+    var cnt=tasks.filter(function(t){return decisions[t.id]===i}).length;
+    if(!cnt) return;
+    html+='<div class="sum-dec-stat"><div class="sum-dec-dot" style="background:'+b.color+'"></div>'+
+      '<span class="sum-dec-lbl">'+esc(b.label)+'</span>'+
+      '<span class="sum-dec-cnt">'+cnt+'</span></div>';
+  });
+  document.getElementById('sum-dec-breakdown').innerHTML=html;
+
+  updateSummarySubmit();
+  // Keep updating as queue processes
+  var check=setInterval(function(){
+    updateSummarySubmit();
+    if(!submitQueue.length&&!submitRunning) clearInterval(check);
+  },600);
+}
+
+function updateSummarySubmit(){
+  var ok=0,pend=0,err=0;
+  tasks.forEach(function(t){
+    var s=submitStatus[t.id];
+    if(s==='ok') ok++;
+    else if(s==='err') err++;
+    else if(s==='q') pend++;
+  });
+  document.getElementById('sum-s-ok').textContent=ok;
+  document.getElementById('sum-s-pend').textContent=pend;
+  document.getElementById('sum-s-err').textContent=err;
+
+  var total=ok+pend+err;
+  var pct=total?Math.round(ok/total*100):0;
+  document.getElementById('sum-fill').style.width=pct+'%';
+
+  // Error list
+  var errHtml='';
+  tasks.forEach(function(t){
+    if(submitStatus[t.id]==='err'){
+      errHtml+='<div class="err-item">'+
+        '<span class="ei-name">'+esc(t.title||t.name||'#'+t.id)+'</span>'+
+        '<button class="ei-retry" onclick="retryTask('+t.id+')">Повторить</button></div>';
+    }
+  });
+  document.getElementById('sum-err-list').innerHTML=errHtml;
+  document.getElementById('btn-retry').style.display=err?'':'none';
+}
+
+function retryTask(taskId){
+  if(submitStatus[taskId]==='err'){
+    submitStatus[taskId]='q';
+    submitQueue.push(taskId);
+    kickQueue();
+  }
+}
+
+function retryFailed(){
+  tasks.forEach(function(t){
+    if(submitStatus[t.id]==='err') retryTask(t.id);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  UTIL
+// ═══════════════════════════════════════════════════════════
+function fmtDate(v){
+  if(!v) return '';
+  // Timestamp (number or numeric string)
+  if(!isNaN(v)&&String(v).length>=10){
+    var d=new Date(Number(v)*(String(v).length<=10?1000:1));
+    return d.toLocaleDateString('ru-RU');
+  }
+  // ISO string — just take date part
+  return String(v).slice(0,10);
+}
+
+function esc(s){
+  return String(s||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  БАГ-РЕПОРТ
+// ═══════════════════════════════════════════════════════════
+function showBugReport(){
+  var t=tasks[idx];
+  var no=t?(t.no||t.number||t.id||''):'';
+  document.getElementById('br-taskno').value=no?('#'+no):'';
+  document.getElementById('br-desc').value='';
+  document.getElementById('br-sent').style.display='none';
+  document.getElementById('br-btn').disabled=false;
+  document.getElementById('bug-modal').classList.add('open');
+}
+
+function hideBugReport(e){
+  if(e&&e.target!==document.getElementById('bug-modal')) return;
+  document.getElementById('bug-modal').classList.remove('open');
+}
+
+function submitBugReport(){
+  var type=document.getElementById('br-type').value;
+  var desc=document.getElementById('br-desc').value.trim();
+  var taskno=document.getElementById('br-taskno').value.trim();
+  if(!desc){document.getElementById('br-desc').focus();return}
+  var btn=document.getElementById('br-btn');
+  btn.disabled=true; btn.textContent='Сохраняю...';
+  fetch('/report-bug',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({type:type,description:desc,taskNumber:taskno})})
+  .then(function(){
+    document.getElementById('br-sent').style.display='block';
+    btn.textContent='Отправить';
+    setTimeout(function(){document.getElementById('bug-modal').classList.remove('open');},1500);
+  })
+  .catch(function(){
+    btn.disabled=false; btn.textContent='Отправить';
+    alert('Не удалось сохранить отчёт. Попробуйте ещё раз.');
+  });
+}
+
+// Закрытие модалки по Escape
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'&&document.getElementById('bug-modal').classList.contains('open')){
+    document.getElementById('bug-modal').classList.remove('open');
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+//  ВЕРСИЯ ПРИЛОЖЕНИЯ
+// ═══════════════════════════════════════════════════════════
+(function(){
+  fetch('/version')
+  .then(function(r){return r.json()})
+  .then(function(d){
+    var el=document.getElementById('app-version');
+    if(el) el.textContent='v'+d.version;
+  })
+  .catch(function(){});
+})();
+</script>
+</body>
+</html>
