@@ -1,0 +1,64 @@
+name: Build & Release EXE
+
+# Запускается когда пушим тег вида v1.2.0
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write   # нужно для создания Release
+
+jobs:
+  build:
+    name: Сборка ActiveMapReviewer.exe
+    runs-on: windows-latest
+
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+
+      - name: Установить Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Установить PyInstaller
+        run: python -m pip install pyinstaller
+
+      - name: Собрать .exe
+        run: |
+          python -m PyInstaller `
+            --onefile `
+            --noconsole `
+            --name ActiveMapReviewer `
+            --add-data "reviewer_html.html;." `
+            reviewer.py
+
+      - name: Проверить что файл создан
+        run: |
+          if (!(Test-Path "dist\ActiveMapReviewer.exe")) {
+            Write-Error "Файл dist\ActiveMapReviewer.exe не найден!"
+            exit 1
+          }
+          $size = (Get-Item "dist\ActiveMapReviewer.exe").length / 1MB
+          Write-Host "Размер файла: $([math]::Round($size, 1)) МБ"
+
+      - name: Создать GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "ActiveMap Reviewer ${{ github.ref_name }}"
+          body: |
+            ## Скачать
+
+            👉 **[ActiveMapReviewer.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ActiveMapReviewer.exe)**
+
+            Запустите файл двойным кликом — браузер откроется автоматически.
+
+            > ⚠️ Если Windows предупреждает об опасности — нажмите «Подробнее» → «Выполнить всё равно».
+
+            ---
+            Полное описание изменений: [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
+          files: dist/ActiveMapReviewer.exe
+          draft: false
+          prerelease: false
