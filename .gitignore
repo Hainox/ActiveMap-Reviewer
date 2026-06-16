@@ -2,15 +2,30 @@
 __pycache__/
 *.pyc
 *.pyo
+
+# PyInstaller
 dist/
 build/
 *.spec
-
-# PyInstaller output
 ActiveMapReviewer.exe
 
 # Баг-репорты (содержат внутренние данные)
 bug_reports.jsonl
+
+# Временные файлы Office
+~$*
+.~lock.*
+
+# Рабочие данные (не для репозитория)
+*.rar
+*.zip
+*.xlsx
+*.xls
+*.lnk
+*.pdf
+
+# Дизайн-черновики (файлы вида "name (1).html")
+*\(1\).html
 
 # Системные
 .DS_Store
