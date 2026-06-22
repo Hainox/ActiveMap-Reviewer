@@ -1741,4 +1741,42 @@ function hideBugReport(e){
 function submitBugReport(){
   var type=document.getElementById('br-type').value;
   var desc=document.getElementById('br-desc').value.trim();
-  var taskno=document.getE
+  var taskno=document.getElementById('br-taskno').value.trim();
+  if(!desc){document.getElementById('br-desc').focus();return}
+  var btn=document.getElementById('br-btn');
+  btn.disabled=true; btn.textContent='Сохраняю...';
+  fetch('/report-bug',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({type:type,description:desc,taskNumber:taskno})})
+  .then(function(){
+    document.getElementById('br-sent').style.display='block';
+    btn.textContent='Отправить';
+    setTimeout(function(){document.getElementById('bug-modal').classList.remove('open');},1500);
+  })
+  .catch(function(){
+    btn.disabled=false; btn.textContent='Отправить';
+    alert('Не удалось сохранить отчёт. Попробуйте ещё раз.');
+  });
+}
+
+// Закрытие модалки по Escape
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'&&document.getElementById('bug-modal').classList.contains('open')){
+    document.getElementById('bug-modal').classList.remove('open');
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+//  ВЕРСИЯ ПРИЛОЖЕНИЯ
+// ═══════════════════════════════════════════════════════════
+(function(){
+  fetch('/version')
+  .then(function(r){return r.json()})
+  .then(function(d){
+    var el=document.getElementById('app-version');
+    if(el) el.textContent='v'+d.version;
+  })
+  .catch(function(){});
+})();
+</script>
+</body>
+</html>
