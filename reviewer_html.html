@@ -88,7 +88,8 @@ body{font-family:'Century Gothic','Montserrat',Tahoma,Geneva,sans-serif;backgrou
 .btn-cfg-num{font-size:13px;color:#9aa6ba;font-weight:700;width:18px;flex-shrink:0;text-align:center}
 .btn-cfg-label{flex:1;border:1px solid #d7deea;border-radius:8px;padding:9px 10px;font-size:13px;font-family:inherit;background:#fff;color:#16223f}
 .btn-cfg-label:focus{outline:none;border-color:#c8a96a}
-.btn-cfg-status{flex:1;border:1px solid #d7deea;border-radius:8px;padding:9px 10px;font-size:13px;background:#fff;min-width:0;font-family:inherit;color:#16223f}
+.btn-cfg-status{flex:1.4;border:1px solid #d7deea;border-radius:8px;padding:9px 10px;font-size:13px;background:#fff;min-width:0;font-family:inherit;color:#16223f}
+.btn-cfg-stage{flex:0 0 140px;border:1px solid #d7deea;border-radius:8px;padding:9px 10px;font-size:13px;background:#fff;font-family:inherit;color:#16223f}
 .btn-cfg-color{width:38px;height:38px;border-radius:8px;border:2px solid #e3e9f2;cursor:pointer;padding:2px;flex-shrink:0;background:#fff}
 .btn-cfg-del{background:#fff;border:1px solid #e3e9f2;border-radius:8px;color:#c0392b;cursor:pointer;font-size:15px;width:38px;height:38px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .btn-cfg-del:hover{background:#fee2e2;border-color:#fca5a5}
@@ -305,9 +306,10 @@ body{font-family:'Century Gothic','Montserrat',Tahoma,Geneva,sans-serif;backgrou
     <div class="field">
       <label>Стадия карточки</label>
       <select id="stage-select">
+        <option value="" disabled selected>-- Выберите стадию --</option>
         <option value="1">В работе (активные)</option>
         <option value="2">Завершено</option>
-        <option value="">Все стадии</option>
+        <option value="all">Все стадии</option>
       </select>
     </div>
   </div>
@@ -532,7 +534,7 @@ body{font-family:'Century Gothic','Montserrat',Tahoma,Geneva,sans-serif;backgrou
 // ═══════════════════════════════════════════════════════════
 var tasks=[], idx=0;
 var decisions={};         // taskId -> btnIdx | -1 (skip)
-var actionButtons=[];     // [{label,statusId,color}]
+var actionButtons=[];     // [{label,statusId,stageId,color}]
 var allOrgs=[];
 var selectedOrgId=null;
 var allStatuses=[];
@@ -796,27 +798,49 @@ var orgParamName='contractorId';
 
 function loadOrgs(){
   // Try endpoints in order: contractors, organizations, executors
+  // Используем пагинацию чтобы загрузить ВСЕ организации
   var endpoints=[
     '/proxy/contractors?apiVersion=2.0',
     '/proxy/organizations?apiVersion=2.0',
     '/proxy/executors?apiVersion=2.0'
   ];
   var paramNames=['contractorId','organizationId','executorId'];
+  var PAGE=500; // сколько за раз
+
+  function fetchAllPages(baseUrl, cb){
+    var all=[];
+    function nextPage(offset){
+      var url=baseUrl+'&limit='+PAGE+'&offset='+offset;
+      fetch(url)
+      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+      .then(function(d){
+        var items=Array.isArray(d)?d:(d.data||d.items||d.contractors||d.organizations||d.executors||[]);
+        all=all.concat(items);
+        if(items.length===PAGE){
+          nextPage(offset+PAGE); // есть ещё страницы
+        } else {
+          cb(null, all);
+        }
+      })
+      .catch(function(e){ cb(e); });
+    }
+    nextPage(0);
+  }
+
   function tryNext(i){
     if(i>=endpoints.length){allOrgs=[];return;}
-    fetch(endpoints[i])
-    .then(function(r){
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      return r.json();
-    })
-    .then(function(d){
-      var items=Array.isArray(d)?d:(d.data||d.items||d.contractors||d.organizations||d.executors||[]);
-      if(!items.length) throw new Error('empty');
+    fetchAllPages(endpoints[i], function(err, items){
+      if(err||!items||!items.length){ tryNext(i+1); return; }
+      // Сортируем по имени
+      items.sort(function(a,b){
+        var na=(a.name||a.title||'').toLowerCase();
+        var nb=(b.name||b.title||'').toLowerCase();
+        return na<nb?-1:na>nb?1:0;
+      });
       allOrgs=items;
       orgParamName=paramNames[i];
       console.log('[orgs] loaded '+items.length+' from '+endpoints[i]+', param='+orgParamName);
-    })
-    .catch(function(){tryNext(i+1)});
+    });
   }
   tryNext(0);
 }
@@ -874,8 +898,8 @@ document.addEventListener('click',function(e){
 // ─── BUTTON CONFIG ───
 function initBtnCfg(){
   actionButtons=[
-    {label:'Утверждено',statusId:'',color:'#16a34a'},
-    {label:'Доработка',statusId:'',color:'#ea580c'}
+    {label:'Утверждено',statusId:'',stageId:'2',color:'#16a34a'},
+    {label:'Доработка',statusId:'',stageId:'1',color:'#ea580c'}
   ];
   renderBtnCfg();
   loadStatusesForBtns();
@@ -899,9 +923,13 @@ function renderBtnCfg(){
       var sel=(String(s.id)===String(b.statusId))||(!b.statusId&&n.toLowerCase().indexOf(b.label.toLowerCase().split(' ')[0])>=0);
       statusOpts+='<option value="'+s.id+'"'+(sel?' selected':'')+'>'+esc(n)+'</option>';
     });
+    var stageOpts=
+      '<option value="1"'+(b.stageId==='1'?' selected':'')+'>В работе</option>'+
+      '<option value="2"'+(b.stageId==='2'?' selected':'')+'>Завершено</option>';
     row.innerHTML='<span class="btn-cfg-num">'+(i+1)+'</span>'+
       '<input class="btn-cfg-label" type="text" value="'+esc(b.label)+'" placeholder="Название" oninput="updateBtn('+i+',\'label\',this.value)">'+
       '<select class="btn-cfg-status" onchange="updateBtn('+i+',\'statusId\',this.value)">'+statusOpts+'</select>'+
+      '<select class="btn-cfg-stage" onchange="updateBtn('+i+',\'stageId\',this.value)" title="Стадия карточки">'+stageOpts+'</select>'+
       '<input class="btn-cfg-color" type="color" value="'+b.color+'" oninput="updateBtn('+i+',\'color\',this.value)">'+
       (actionButtons.length>1?'<button class="btn-cfg-del" onclick="delBtn('+i+')" title="Удалить">✕</button>':'');
     list.appendChild(row);
@@ -916,7 +944,7 @@ function updateBtn(i,key,val){
 
 function addBtnCfg(){
   if(actionButtons.length>=5) return;
-  actionButtons.push({label:'Кнопка '+(actionButtons.length+1),statusId:'',color:COLORS[actionButtons.length%COLORS.length]});
+  actionButtons.push({label:'Кнопка '+(actionButtons.length+1),statusId:'',stageId:'1',color:COLORS[actionButtons.length%COLORS.length]});
   renderBtnCfg();
 }
 
@@ -931,8 +959,10 @@ function delBtn(i){
 function startReview(){
   var typeId=document.getElementById('type-select').value;
   var statusId=document.getElementById('status-select').value;
+  var stageVal=document.getElementById('stage-select').value;
   if(!typeId){alert('Выберите вид задания');return}
-  if(!statusId){alert('Выберите этап');return}
+  if(!statusId){alert('Выберите этап (статус)');return}
+  if(!stageVal){alert('Выберите стадию карточки');return}
   var validBtns=actionButtons.filter(function(b){return b.label.trim()&&b.statusId});
   if(!validBtns.length){alert('Настройте хотя бы одну кнопку решения с выбранным статусом');return}
   actionButtons=validBtns;
@@ -943,7 +973,7 @@ function startReview(){
   document.getElementById('task-loader').style.display='flex';
   document.getElementById('task-card-wrap').classList.add('hidden');
 
-  var stageId=document.getElementById('stage-select').value;
+  var stageId=(stageVal==='all')?'':stageVal;
   var url='/proxy/tasks?apiVersion=2.0&limit=500&type_id='+typeId+'&onlyStatus='+statusId;
   if(stageId) url+='&stage='+stageId;
   if(selectedOrgId) url+='&'+orgParamName+'='+selectedOrgId;
@@ -1472,8 +1502,11 @@ function processNext(){
   submitStatus[taskId]='q';
   updateTopStats();
   if(tasks[idx]&&tasks[idx].id==taskId) updateSubmitPill(taskId);
+  var stageId=actionButtons[btnIdx].stageId;
+  var patchBody={status_id:Number(statusId),statusId:Number(statusId)};
+  if(stageId) patchBody.stage=Number(stageId);
   fetch('/patch/'+taskId,{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({status_id:Number(statusId),statusId:Number(statusId)})})
+    body:JSON.stringify(patchBody)})
   .then(function(r){
     if(!r.ok) throw new Error('HTTP '+r.status);
     submitStatus[taskId]='ok';
@@ -1708,42 +1741,4 @@ function hideBugReport(e){
 function submitBugReport(){
   var type=document.getElementById('br-type').value;
   var desc=document.getElementById('br-desc').value.trim();
-  var taskno=document.getElementById('br-taskno').value.trim();
-  if(!desc){document.getElementById('br-desc').focus();return}
-  var btn=document.getElementById('br-btn');
-  btn.disabled=true; btn.textContent='Сохраняю...';
-  fetch('/report-bug',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({type:type,description:desc,taskNumber:taskno})})
-  .then(function(){
-    document.getElementById('br-sent').style.display='block';
-    btn.textContent='Отправить';
-    setTimeout(function(){document.getElementById('bug-modal').classList.remove('open');},1500);
-  })
-  .catch(function(){
-    btn.disabled=false; btn.textContent='Отправить';
-    alert('Не удалось сохранить отчёт. Попробуйте ещё раз.');
-  });
-}
-
-// Закрытие модалки по Escape
-document.addEventListener('keydown',function(e){
-  if(e.key==='Escape'&&document.getElementById('bug-modal').classList.contains('open')){
-    document.getElementById('bug-modal').classList.remove('open');
-  }
-});
-
-// ═══════════════════════════════════════════════════════════
-//  ВЕРСИЯ ПРИЛОЖЕНИЯ
-// ═══════════════════════════════════════════════════════════
-(function(){
-  fetch('/version')
-  .then(function(r){return r.json()})
-  .then(function(d){
-    var el=document.getElementById('app-version');
-    if(el) el.textContent='v'+d.version;
-  })
-  .catch(function(){});
-})();
-</script>
-</body>
-</html>
+  var taskno=document.getE

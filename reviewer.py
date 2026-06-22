@@ -3,9 +3,17 @@
 """ActiveMap Task Reviewer — Префектура САО"""
 import json, http.server, urllib.request, urllib.error, webbrowser, threading, os, datetime, sys
 
-VERSION = "1.0.0"
+VERSION = "1.2.0"
 BASE_URL = "https://sao.geofsm.ru"
 PORT = 8765
+
+# ── GitHub Issues для баг-репортов ────────────────────────────────────────────
+# Вставьте сюда Personal Access Token с правом Issues:Write
+# Инструкция: github.com/settings/tokens → Fine-grained → Issues: Read+Write
+# Если оставить пустым — репорты сохраняются только локально в bug_reports.jsonl
+GITHUB_TOKEN = ""  # вставьте токен вручную перед запуском, не храните в репозитории
+GITHUB_REPO  = "Hainox/ActiveMap-Reviewer"   # ваш репозиторий
+# ─────────────────────────────────────────────────────────────────────────────
 
 def _app_dir():
     """Папка рядом с .exe или рядом с .py — используется для записи файлов."""
@@ -141,18 +149,68 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except Exception as e: self._send(500, json.dumps({"error":str(e)}).encode())
 
     def _handle_bug_report(self, body):
-        """Сохраняет отчёт об ошибке в файл bug_reports.jsonl рядом с программой"""
+        """Сохраняет отчёт об ошибке локально и отправляет в GitHub Issues (если задан токен)"""
         try:
             report = json.loads(body)
             report["timestamp"] = datetime.datetime.now().isoformat()
             report["version"] = VERSION
+
+            # 1. Всегда сохраняем локально как резерв
             log_path = os.path.join(_app_dir(), "bug_reports.jsonl")
             with open(log_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(report, ensure_ascii=False) + "\n")
-            print(f"  [BUG REPORT] {report.get('type','?')}: {str(report.get('description',''))[:80]}")
+
+            rtype = report.get("type", "Прочее")
+            rdesc = str(report.get("description", ""))
+            rtask = report.get("task_no", "")
+            print(f"  [BUG REPORT] {rtype}: {rdesc[:80]}")
+
+            # 2. Отправляем в GitHub Issues если токен задан
+            if GITHUB_TOKEN:
+                self._send_github_issue(rtype, rdesc, rtask, report["timestamp"])
+
             self._send(200, b'{"ok":true}')
         except Exception as e:
             self._send(500, json.dumps({"error": str(e)}).encode())
+
+    def _send_github_issue(self, rtype, description, task_no, timestamp):
+        """Создаёт Issue в GitHub репозитории"""
+        try:
+            title = f"[{rtype}] {description[:80]}"
+            body_lines = [
+                f"**Тип:** {rtype}",
+                f"**Описание:** {description}",
+            ]
+            if task_no:
+                body_lines.append(f"**Задание:** {task_no}")
+            body_lines += [
+                f"**Версия:** {VERSION}",
+                f"**Время:** {timestamp}",
+                "",
+                "*Отправлено автоматически из ActiveMap Reviewer*",
+            ]
+            payload = json.dumps({
+                "title": title,
+                "body": "\n".join(body_lines),
+                "labels": ["bug"]
+            }).encode("utf-8")
+
+            req = urllib.request.Request(
+                f"https://api.github.com/repos/{GITHUB_REPO}/issues",
+                data=payload,
+                headers={
+                    "Authorization": f"token {GITHUB_TOKEN}",
+                    "Accept": "application/vnd.github+json",
+                    "Content-Type": "application/json",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                },
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                result = json.loads(resp.read())
+                print(f"  [GITHUB ISSUE] #{result.get('number')} создан: {result.get('html_url','')}")
+        except Exception as e:
+            print(f"  [GITHUB ISSUE ERROR] {e}")
 
     def _debug_task(self, task_id):
         """Возвращает сырой JSON задания для диагностики"""
