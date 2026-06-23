@@ -162,7 +162,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
             rtype = report.get("type", "Прочее")
             rdesc = str(report.get("description", ""))
-            rtask = report.get("task_no", "")
+            rtask = report.get("taskNumber", "")
             print(f"  [BUG REPORT] {rtype}: {rdesc[:80]}")
 
             # 2. Отправляем в GitHub Issues если токен задан

@@ -856,15 +856,19 @@ function openOrgDd(){
 function showOrgDd(query){
   var dd=document.getElementById('org-dd');
   var q=(query||'').toLowerCase();
+  var SHOW_MAX=100;
   var filtered=q?allOrgs.filter(function(o){
     var n=o.name||o.title||'';
     return n.toLowerCase().indexOf(q)>=0;
-  }):allOrgs.slice(0,80);
+  }):allOrgs;
+  var truncated=filtered.length>SHOW_MAX;
+  var shown=truncated?filtered.slice(0,SHOW_MAX):filtered;
   var html='<div class="org-opt all-opt" onclick="clearOrg()">🌐 Все организации</div>';
-  filtered.forEach(function(o){
+  shown.forEach(function(o){
     var name=o.name||o.title||String(o.id);
     html+='<div class="org-opt" onclick="selectOrg('+o.id+')">'+esc(name)+'</div>';
   });
+  if(truncated) html+='<div class="org-opt" style="color:#94a3b8;cursor:default;font-style:italic">...ещё '+(filtered.length-SHOW_MAX)+'. Введите название для поиска</div>';
   dd.innerHTML=html;
   dd.classList.add('open');
 }
@@ -1747,7 +1751,8 @@ function submitBugReport(){
   btn.disabled=true; btn.textContent='Сохраняю...';
   fetch('/report-bug',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({type:type,description:desc,taskNumber:taskno})})
-  .then(function(){
+  .then(function(r){
+    if(!r.ok) throw new Error('HTTP '+r.status);
     document.getElementById('br-sent').style.display='block';
     btn.textContent='Отправить';
     setTimeout(function(){document.getElementById('bug-modal').classList.remove('open');},1500);
