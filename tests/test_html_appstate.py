@@ -116,3 +116,24 @@ class TestCatchHandlers:
         assert re.search(r'submitStatus\[taskId\]=.err.*\bconsole\.(error|warn)', html, re.DOTALL) or \
                re.search(r'\.catch\s*\(\s*function\s*\(\s*e\s*\).*submitStatus\[taskId\]=', html, re.DOTALL), \
             "Submit catch must capture error and log it"
+
+
+class TestButtonLocking:
+    """Decision buttons must be locked on click and unlocked after PATCH — Task 2.5."""
+
+    def test_decide_disables_buttons(self):
+        """decide() must disable .dec-btn elements when a real decision is made."""
+        html = _html()
+        # decide function should set disabled on dec-btn elements
+        assert re.search(
+            r'function decide\b.*?\.dec-btn.*?\.disabled\s*=\s*true',
+            html, re.DOTALL
+        ), "decide() must disable .dec-btn buttons on click"
+
+    def test_process_next_reenables_buttons(self):
+        """processNext() must re-enable .dec-btn after PATCH resolves."""
+        html = _html()
+        assert re.search(
+            r'function processNext\b.*?\.dec-btn.*?\.disabled\s*=\s*false',
+            html, re.DOTALL
+        ), "processNext() must re-enable .dec-btn buttons after PATCH response"

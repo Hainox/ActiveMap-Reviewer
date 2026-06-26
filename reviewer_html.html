@@ -1474,6 +1474,8 @@ function decide(taskId,btnIdx){
     var btn=document.querySelector('[data-dec-AppState.idx="'+btnIdx+'"]');
     if(btn) btn.classList.add('active');
   }
+  // Lock .dec-btn buttons while PATCH is in-flight
+  if(btnIdx>=0) document.querySelectorAll('.dec-btn').forEach(function(b){b.disabled=true});
   // Queue submission if real decision
   // Если уже было успешно отправлено — позволяем переотправить (пользователь мог ошибиться)
   if(btnIdx>=0 && btnIdx<AppState.actionButtons.length){
@@ -1520,7 +1522,10 @@ function processNext(){
     AppState.submitStatus[taskId]='err';
   })
   .then(function(){
-    if(AppState.tasks[AppState.idx]&&AppState.tasks[AppState.idx].id==taskId) updateSubmitPill(taskId);
+    if(AppState.tasks[AppState.idx]&&AppState.tasks[AppState.idx].id==taskId){
+      updateSubmitPill(taskId);
+      document.querySelectorAll('.dec-btn').forEach(function(b){b.disabled=false});
+    }
     updateTopStats(); renderHist();
     setTimeout(processNext, AppState.SUBMIT_GAP);
   });
