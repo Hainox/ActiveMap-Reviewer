@@ -1438,7 +1438,7 @@ function renderDecisionBtns(taskId){
     btn.className='dec-btn'+(curDec===i?' active':'');
     btn.style.background=b.color;
     btn.textContent=(i+1)+'. '+b.label;
-    btn.setAttribute('data-dec-AppState.idx',String(i));
+    btn.setAttribute('data-dec-idx',String(i));
     btn.onclick=function(){decide(taskId,i)};
     area.appendChild(btn);
   });
@@ -1473,7 +1473,7 @@ function decide(taskId,btnIdx){
     var skip=document.querySelector('.skip-btn');
     if(skip) skip.classList.add('active');
   } else {
-    var btn=document.querySelector('[data-dec-AppState.idx="'+btnIdx+'"]');
+    var btn=document.querySelector('[data-dec-idx="'+btnIdx+'"]');
     if(btn) btn.classList.add('active');
   }
   // Lock .dec-btn buttons while PATCH is in-flight
