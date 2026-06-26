@@ -25,8 +25,8 @@
 
 - [x] Task 2.1: Add section comments to HTML (`<!-- STATE -->`, `<!-- API -->`, `<!-- UI -->`, `<!-- LIGHTBOX -->`, `<!-- SUBMIT -->`) [121cfa8]
 - [x] Task 2.2: Consolidate ~20 global variables into `AppState` object; update all references [66ac7ca]
-- [x] Task 2.3: Extract `LightboxState` object (photos, curIdx, zoom, dx, dy)
-- [ ] Task 2.4: Replace all `.catch(function(){})` with handlers that log + show user error
+- [x] Task 2.3: Extract `LightboxState` object (photos, curIdx, zoom, dx, dy) [354fc4e]
+- [x] Task 2.4: Replace all `.catch(function(){})` with handlers that log + show user error
 - [ ] Task 2.5: Add button locking — disable decision buttons on click, re-enable on PATCH response
 - [ ] Task 2.6: Fix `POST /patch` — show error card with "Повторить" if PATCH fails
 - [ ] Task 2.7: Manual test — navigate 20 tasks, apply decisions, verify no console errors

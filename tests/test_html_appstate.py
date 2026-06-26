@@ -96,3 +96,23 @@ class TestLightboxBareGlobalsRemoved:
             stripped = line.strip()
             assert not re.match(r"^var lbZoom\s*=", stripped), \
                 "Bare 'var lbZoom' still present"
+
+
+class TestCatchHandlers:
+    """All .catch() blocks must log + notify — Task 2.4."""
+
+    def test_no_empty_catch_blocks(self):
+        """Catch blocks with no body (function(){}) must not exist."""
+        html = _html()
+        # Match .catch(function(){}) with optional whitespace/newlines inside braces
+        empty_catches = re.findall(r'\.catch\s*\(\s*function\s*\(\s*\)\s*\{\s*\}\s*\)', html)
+        assert not empty_catches, \
+            f"Found {len(empty_catches)} empty .catch(function(){{}}) block(s)"
+
+    def test_submit_catch_logs_error(self):
+        """Submit queue catch must include error parameter and log it."""
+        html = _html()
+        # The submit catch (processNext) must capture the error variable
+        assert re.search(r'submitStatus\[taskId\]=.err.*\bconsole\.(error|warn)', html, re.DOTALL) or \
+               re.search(r'\.catch\s*\(\s*function\s*\(\s*e\s*\).*submitStatus\[taskId\]=', html, re.DOTALL), \
+            "Submit catch must capture error and log it"

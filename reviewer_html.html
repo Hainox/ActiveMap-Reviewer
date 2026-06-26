@@ -1781,7 +1781,7 @@ document.addEventListener('keydown',function(e){
     var el=document.getElementById('app-version');
     if(el) el.textContent='v'+d.version;
   })
-  .catch(function(){});
+  .catch(function(e){console.warn('[version]',e);});
 })();
 </script>
 </body>
