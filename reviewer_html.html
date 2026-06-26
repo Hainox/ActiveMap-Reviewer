@@ -555,9 +555,8 @@ var AppState = {
   _lastTaskUrl: ''
 };
 
-// Lightbox state (extracted in Task 2.3)
-var lbPhotos=[];
-var lbCurIdx=0;
+// Lightbox state
+var LightboxState={photos:[],curIdx:0,zoom:1,dx:0,dy:0};
 
 // ═══════════════════════════════════════════════════════════
 //  UI
@@ -1312,37 +1311,36 @@ function renderCustomFields(cf){
 // ═══════════════════════════════════════════════════════════
 //  LIGHTBOX
 // ═══════════════════════════════════════════════════════════
-var lbZoom=1, lbDx=0, lbDy=0;
 var lbDragging=false, lbDragStart={x:0,y:0,dx:0,dy:0};
 var LB_ZOOM_MIN=1, LB_ZOOM_MAX=8;
 
 function lbApplyTransform(animate){
   var img=document.getElementById('lb-img');
   img.style.transition=animate?'transform .15s ease':'none';
-  img.style.transform='translate('+lbDx+'px,'+lbDy+'px) scale('+lbZoom+')';
-  img.classList.toggle('lb-zoomed', lbZoom>1);
-  document.getElementById('lb-zoom-level').textContent=Math.round(lbZoom*100)+'%';
+  img.style.transform='translate('+LightboxState.dx+'px,'+LightboxState.dy+'px) scale('+LightboxState.zoom+')';
+  img.classList.toggle('lb-zoomed', LightboxState.zoom>1);
+  document.getElementById('lb-zoom-level').textContent=Math.round(LightboxState.zoom*100)+'%';
   var hint=document.getElementById('lb-hint');
-  if(hint) hint.style.opacity=lbZoom>1?'0':'1';
+  if(hint) hint.style.opacity=LightboxState.zoom>1?'0':'1';
 }
 
 function lbResetZoom(animate){
-  lbZoom=1; lbDx=0; lbDy=0;
+  LightboxState.zoom=1; LightboxState.dx=0; LightboxState.dy=0;
   lbApplyTransform(animate!==false);
 }
 
 function lbZoomStep(dir){
   var steps=[1,1.25,1.5,2,2.5,3,4,5,6,8];
-  var cur=lbZoom;
+  var cur=LightboxState.zoom;
   var i=0;
   if(dir>0){
-    for(i=0;i<steps.length;i++) if(steps[i]>cur+0.05){lbZoom=steps[i];break}
-    if(i===steps.length) lbZoom=LB_ZOOM_MAX;
+    for(i=0;i<steps.length;i++) if(steps[i]>cur+0.05){LightboxState.zoom=steps[i];break}
+    if(i===steps.length) LightboxState.zoom=LB_ZOOM_MAX;
   } else {
-    for(i=steps.length-1;i>=0;i--) if(steps[i]<cur-0.05){lbZoom=steps[i];break}
-    if(i<0) lbZoom=LB_ZOOM_MIN;
+    for(i=steps.length-1;i>=0;i--) if(steps[i]<cur-0.05){LightboxState.zoom=steps[i];break}
+    if(i<0) LightboxState.zoom=LB_ZOOM_MIN;
   }
-  if(lbZoom<=1){lbDx=0;lbDy=0;}
+  if(LightboxState.zoom<=1){LightboxState.dx=0;LightboxState.dy=0;}
   lbApplyTransform(true);
 }
 
@@ -1359,28 +1357,28 @@ document.addEventListener('DOMContentLoaded',function(){
     var mx=e.clientX-rect.left-rect.width/2;
     var my=e.clientY-rect.top-rect.height/2;
     var factor=e.deltaY<0?1.15:0.87;
-    var newZoom=Math.max(LB_ZOOM_MIN,Math.min(LB_ZOOM_MAX,lbZoom*factor));
+    var newZoom=Math.max(LB_ZOOM_MIN,Math.min(LB_ZOOM_MAX,LightboxState.zoom*factor));
     // Сдвигаем так, чтобы точка под курсором не уехала
-    var scale=newZoom/lbZoom;
-    lbDx=mx+(lbDx-mx)*scale;
-    lbDy=my+(lbDy-my)*scale;
-    lbZoom=newZoom;
-    if(lbZoom<=1){lbDx=0;lbDy=0;}
+    var scale=newZoom/LightboxState.zoom;
+    LightboxState.dx=mx+(LightboxState.dx-mx)*scale;
+    LightboxState.dy=my+(LightboxState.dy-my)*scale;
+    LightboxState.zoom=newZoom;
+    if(LightboxState.zoom<=1){LightboxState.dx=0;LightboxState.dy=0;}
     lbApplyTransform(false);
   },{passive:false});
 
   // Перетаскивание
   var img=document.getElementById('lb-img');
   img.addEventListener('mousedown',function(e){
-    if(lbZoom<=1) return;
+    if(LightboxState.zoom<=1) return;
     e.stopPropagation(); e.preventDefault();
     lbDragging=true;
-    lbDragStart={x:e.clientX,y:e.clientY,dx:lbDx,dy:lbDy};
+    lbDragStart={x:e.clientX,y:e.clientY,dx:LightboxState.dx,dy:LightboxState.dy};
   });
   document.addEventListener('mousemove',function(e){
     if(!lbDragging) return;
-    lbDx=lbDragStart.dx+(e.clientX-lbDragStart.x);
-    lbDy=lbDragStart.dy+(e.clientY-lbDragStart.y);
+    LightboxState.dx=lbDragStart.dx+(e.clientX-lbDragStart.x);
+    LightboxState.dy=lbDragStart.dy+(e.clientY-lbDragStart.y);
     lbApplyTransform(false);
   });
   document.addEventListener('mouseup',function(){lbDragging=false;});
@@ -1388,13 +1386,13 @@ document.addEventListener('DOMContentLoaded',function(){
   // Двойной клик — переключение зума
   img.addEventListener('dblclick',function(e){
     e.stopPropagation();
-    if(lbZoom>1){ lbResetZoom(); }
-    else { lbZoom=2.5; lbDx=0; lbDy=0; lbApplyTransform(true); }
+    if(LightboxState.zoom>1){ lbResetZoom(); }
+    else { LightboxState.zoom=2.5; LightboxState.dx=0; LightboxState.dy=0; lbApplyTransform(true); }
   });
 });
 
 function openLb(photos, i){
-  lbPhotos=photos; lbCurIdx=i;
+  LightboxState.photos=photos; LightboxState.curIdx=i;
   lbResetZoom(false);
   document.getElementById('lb').classList.add('open');
   lbShow();
@@ -1405,13 +1403,13 @@ function closeLb(){
 }
 function lbClose(e){if(e.target===document.getElementById('lb'))closeLb();}
 function lbNav(dir){
-  lbCurIdx=(lbCurIdx+dir+lbPhotos.length)%lbPhotos.length;
+  LightboxState.curIdx=(LightboxState.curIdx+dir+LightboxState.photos.length)%LightboxState.photos.length;
   lbResetZoom(false);
   lbShow();
 }
 function lbShow(){
-  document.getElementById('lb-img').src=lbPhotos[lbCurIdx];
-  document.getElementById('lb-counter').textContent=(lbCurIdx+1)+' / '+lbPhotos.length;
+  document.getElementById('lb-img').src=LightboxState.photos[LightboxState.curIdx];
+  document.getElementById('lb-counter').textContent=(LightboxState.curIdx+1)+' / '+LightboxState.photos.length;
 }
 
 function updateSubmitPill(taskId){

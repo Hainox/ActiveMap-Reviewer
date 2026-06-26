@@ -51,3 +51,48 @@ class TestBareGlobalsRemoved:
             stripped = line.strip()
             assert not re.match(r"^var submitQueue\s*=\s*\[\s*\]", stripped), \
                 f"Bare 'var submitQueue=[]' still present"
+
+
+class TestLightboxStateDeclared:
+    """LightboxState must consolidate scattered lightbox globals — Task 2.3."""
+
+    def test_lightboxstate_object_declared(self):
+        assert re.search(r"\bvar LightboxState\s*=\s*\{", _html()), \
+            "LightboxState object not declared in reviewer_html.html"
+
+    def test_lightboxstate_has_photos(self):
+        assert re.search(r"\bphotos\s*:", _html())
+
+    def test_lightboxstate_has_cur_idx(self):
+        assert re.search(r"\bcurIdx\s*:", _html())
+
+    def test_lightboxstate_has_zoom(self):
+        assert re.search(r"\bzoom\s*:", _html())
+
+    def test_lightboxstate_has_dx(self):
+        assert re.search(r"\bdx\s*:", _html())
+
+    def test_lightboxstate_has_dy(self):
+        assert re.search(r"\bdy\s*:", _html())
+
+
+class TestLightboxBareGlobalsRemoved:
+    """Bare lb* globals must be replaced by LightboxState properties."""
+
+    def test_no_bare_lb_photos(self):
+        for line in _html().splitlines():
+            stripped = line.strip()
+            assert not re.match(r"^var lbPhotos\s*=", stripped), \
+                "Bare 'var lbPhotos' still present"
+
+    def test_no_bare_lb_cur_idx(self):
+        for line in _html().splitlines():
+            stripped = line.strip()
+            assert not re.match(r"^var lbCurIdx\s*=", stripped), \
+                "Bare 'var lbCurIdx' still present"
+
+    def test_no_bare_lb_zoom_dx_dy(self):
+        for line in _html().splitlines():
+            stripped = line.strip()
+            assert not re.match(r"^var lbZoom\s*=", stripped), \
+                "Bare 'var lbZoom' still present"
