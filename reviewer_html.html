@@ -532,32 +532,32 @@ body{font-family:'Century Gothic','Montserrat',Tahoma,Geneva,sans-serif;backgrou
 // ═══════════════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════════════
-var tasks=[], idx=0;
-var decisions={};         // taskId -> btnIdx | -1 (skip)
-var actionButtons=[];     // [{label,statusId,stageId,color}]
-var allOrgs=[];
-var selectedOrgId=null;
-var allStatuses=[];
-var allTypeGroups=[];
-var allTypesFlat=[];
-var selectedTypeId=null;
-var selectedTypeName='';
+var AppState = {
+  tasks: [],
+  idx: 0,
+  decisions: {},          // taskId -> btnIdx | -1 (skip)
+  actionButtons: [],      // [{label,statusId,stageId,color}]
+  allOrgs: [],
+  selectedOrgId: null,
+  allStatuses: [],
+  allTypeGroups: [],
+  allTypesFlat: [],
+  selectedTypeId: null,
+  selectedTypeName: '',
+  taskDetailCache: {},    // taskId -> {photos:[...], customFields:[...]}
+  taskDetailLoading: {},
+  submitStatus: {},       // taskId -> 'q'|'ok'|'err'
+  submitQueue: [],
+  submitRunning: false,
+  SUBMIT_GAP: 400,
+  COLORS: ['#16a34a','#ea580c','#1e6ff1','#7c3aed','#dc2626'],
+  orgParamName: 'contractorId',
+  _lastTaskUrl: ''
+};
 
-// Task detail cache
-var taskDetailCache={};   // taskId -> {photos:[...], customFields:[...]}
-var taskDetailLoading={};
-
-// Lightbox state
+// Lightbox state (extracted in Task 2.3)
 var lbPhotos=[];
 var lbCurIdx=0;
-
-// Background submit queue
-var submitStatus={};   // taskId -> 'q'|'ok'|'err'
-var submitQueue=[];
-var submitRunning=false;
-var SUBMIT_GAP=400;
-
-var COLORS=['#16a34a','#ea580c','#1e6ff1','#7c3aed','#dc2626'];
 
 // ═══════════════════════════════════════════════════════════
 //  UI
@@ -593,13 +593,13 @@ document.addEventListener('keydown',function(e){
 
   // Просмотр заданий
   if(!document.getElementById('scr-viewer').classList.contains('active')) return;
-  if(!tasks.length) return;
-  var t=tasks[idx];
+  if(!AppState.tasks.length) return;
+  var t=AppState.tasks[AppState.idx];
   if(!t) return;
 
   // Цифры 1-9: нажать кнопку решения → автопереход вперёд
   var num=parseInt(e.key,10);
-  if(num>=1&&num<=actionButtons.length){
+  if(num>=1&&num<=AppState.actionButtons.length){
     e.preventDefault(); decide(t.id, num-1); navigate(1); return;
   }
   // S / Ы — пропустить → автопереход вперёд
@@ -656,7 +656,7 @@ function loadStatuses(){
   .then(function(r){return r.json()})
   .then(function(d){
     var items=Array.isArray(d)?d:(d.data||d.items||d.statuses||[]);
-    allStatuses=items;
+    AppState.allStatuses=items;
     var sel=document.getElementById('status-select');
     sel.innerHTML='';
     items.forEach(function(s){
@@ -686,17 +686,17 @@ function loadTypes(){
       .then(function(r){return r.json()})
       .then(function(d){
         var items=Array.isArray(d)?d:(d.data||d.items||d.types||[]);
-        allTypeGroups=[{groupName:'Виды работ',types:items.map(function(t){
+        AppState.allTypeGroups=[{groupName:'Виды работ',types:items.map(function(t){
           return {id:t.id,name:t.name||t.title||String(t.id)};
         })}];
-        allTypesFlat=allTypeGroups[0].types;
+        AppState.allTypesFlat=AppState.allTypeGroups[0].types;
         renderTypeSelect('');
       });
   });
 }
 
 function parseTypeGroups(d){
-  allTypeGroups=[]; allTypesFlat=[];
+  AppState.allTypeGroups=[]; AppState.allTypesFlat=[];
   var raw=d;
   // Handle various API response shapes
   if(Array.isArray(raw)){
@@ -705,22 +705,22 @@ function parseTypeGroups(d){
       var children=g.children||g.items||g.types||[];
       if(!Array.isArray(children)||!children.length){
         // Flat item in array
-        allTypeGroups.push({groupName:'',types:[{id:g.id,name:g.name||g.title||String(g.id)}]});
+        AppState.allTypeGroups.push({groupName:'',types:[{id:g.id,name:g.name||g.title||String(g.id)}]});
       } else {
         var types=children.map(function(t){return{id:t.id,name:t.name||t.title||String(t.id)};});
-        allTypeGroups.push({groupName:gname,types:types});
-        types.forEach(function(t){allTypesFlat.push(t)});
+        AppState.allTypeGroups.push({groupName:gname,types:types});
+        types.forEach(function(t){AppState.allTypesFlat.push(t)});
       }
     });
     // Flatten single-item groups
-    if(allTypesFlat.length===0){
-      allTypesFlat=raw.map(function(r){return{id:r.id,name:r.name||r.title||String(r.id)};});
-      allTypeGroups=[{groupName:'',types:allTypesFlat}];
+    if(AppState.allTypesFlat.length===0){
+      AppState.allTypesFlat=raw.map(function(r){return{id:r.id,name:r.name||r.title||String(r.id)};});
+      AppState.allTypeGroups=[{groupName:'',types:AppState.allTypesFlat}];
     }
   } else {
     var items=d.data||d.items||d.types||[];
-    allTypesFlat=items.map(function(t){return{id:t.id,name:t.name||t.title||String(t.id)};});
-    allTypeGroups=[{groupName:'',types:allTypesFlat}];
+    AppState.allTypesFlat=items.map(function(t){return{id:t.id,name:t.name||t.title||String(t.id)};});
+    AppState.allTypeGroups=[{groupName:'',types:AppState.allTypesFlat}];
   }
   renderTypeSelect('');
 }
@@ -730,7 +730,7 @@ function renderTypeSelect(query){
   sel.innerHTML='';
   var q=query.toLowerCase();
   var matched=0;
-  allTypeGroups.forEach(function(g){
+  AppState.allTypeGroups.forEach(function(g){
     var types=g.types.filter(function(t){
       return !q||t.name.toLowerCase().indexOf(q)>=0;
     });
@@ -741,7 +741,7 @@ function renderTypeSelect(query){
       types.forEach(function(t){
         var o=document.createElement('option');
         o.value=String(t.id); o.textContent=t.name;
-        if(selectedTypeId&&String(t.id)===String(selectedTypeId)) o.selected=true;
+        if(AppState.selectedTypeId&&String(t.id)===String(AppState.selectedTypeId)) o.selected=true;
         og.appendChild(o); matched++;
       });
       sel.appendChild(og);
@@ -749,19 +749,19 @@ function renderTypeSelect(query){
       types.forEach(function(t){
         var o=document.createElement('option');
         o.value=String(t.id); o.textContent=t.name;
-        if(selectedTypeId&&String(t.id)===String(selectedTypeId)) o.selected=true;
+        if(AppState.selectedTypeId&&String(t.id)===String(AppState.selectedTypeId)) o.selected=true;
         sel.appendChild(o); matched++;
       });
     }
   });
   if(!matched) sel.innerHTML='<option value="" disabled>Ничего не найдено</option>';
   // Auto-select default
-  if(!selectedTypeId) autoSelectType('абп');
+  if(!AppState.selectedTypeId) autoSelectType('абп');
 }
 
 function autoSelectType(query){
   var q=query.toLowerCase();
-  var found=allTypesFlat.find(function(t){return t.name.toLowerCase().indexOf(q)>=0});
+  var found=AppState.allTypesFlat.find(function(t){return t.name.toLowerCase().indexOf(q)>=0});
   if(found) selectTypeById(found.id);
 }
 
@@ -774,10 +774,10 @@ document.addEventListener('DOMContentLoaded',function(){
   if(sel){
     sel.addEventListener('change',function(){
       var id=sel.value;
-      var t=allTypesFlat.find(function(t){return String(t.id)===String(id)});
-      selectedTypeId=id;
-      selectedTypeName=t?t.name:'';
-      document.getElementById('type-chosen-lbl').textContent=selectedTypeName?('✓ '+selectedTypeName):'';
+      var t=AppState.allTypesFlat.find(function(t){return String(t.id)===String(id)});
+      AppState.selectedTypeId=id;
+      AppState.selectedTypeName=t?t.name:'';
+      document.getElementById('type-chosen-lbl').textContent=AppState.selectedTypeName?('✓ '+AppState.selectedTypeName):'';
     });
   }
 });
@@ -787,18 +787,16 @@ function selectTypeById(id){
   for(var i=0;i<sel.options.length;i++){
     if(sel.options[i].value===String(id)){
       sel.options[i].selected=true;
-      selectedTypeId=id;
-      var t=allTypesFlat.find(function(t){return String(t.id)===String(id)});
-      selectedTypeName=t?t.name:'';
-      document.getElementById('type-chosen-lbl').textContent=selectedTypeName?('✓ '+selectedTypeName):'';
+      AppState.selectedTypeId=id;
+      var t=AppState.allTypesFlat.find(function(t){return String(t.id)===String(id)});
+      AppState.selectedTypeName=t?t.name:'';
+      document.getElementById('type-chosen-lbl').textContent=AppState.selectedTypeName?('✓ '+AppState.selectedTypeName):'';
       return;
     }
   }
 }
 
 // ─── ORG FILTER ───
-// Which param name to use when filtering tasks by org (detected on load)
-var orgParamName='contractorId';
 
 function loadOrgs(){
   // Try endpoints in order: contractors, organizations, executors
@@ -832,7 +830,7 @@ function loadOrgs(){
   }
 
   function tryNext(i){
-    if(i>=endpoints.length){allOrgs=[];return;}
+    if(i>=endpoints.length){AppState.allOrgs=[];return;}
     fetchAllPages(endpoints[i], function(err, items){
       if(err||!items||!items.length){ tryNext(i+1); return; }
       // Сортируем по имени
@@ -841,9 +839,9 @@ function loadOrgs(){
         var nb=(b.name||b.title||'').toLowerCase();
         return na<nb?-1:na>nb?1:0;
       });
-      allOrgs=items;
-      orgParamName=paramNames[i];
-      console.log('[orgs] loaded '+items.length+' from '+endpoints[i]+', param='+orgParamName);
+      AppState.allOrgs=items;
+      AppState.orgParamName=paramNames[i];
+      console.log('[orgs] loaded '+items.length+' from '+endpoints[i]+', param='+AppState.orgParamName);
     });
   }
   tryNext(0);
@@ -861,10 +859,10 @@ function showOrgDd(query){
   var dd=document.getElementById('org-dd');
   var q=(query||'').toLowerCase();
   var SHOW_MAX=100;
-  var filtered=q?allOrgs.filter(function(o){
+  var filtered=q?AppState.allOrgs.filter(function(o){
     var n=o.name||o.title||'';
     return n.toLowerCase().indexOf(q)>=0;
-  }):allOrgs;
+  }):AppState.allOrgs;
   var truncated=filtered.length>SHOW_MAX;
   var shown=truncated?filtered.slice(0,SHOW_MAX):filtered;
   var html='<div class="org-opt all-opt" onclick="clearOrg()">🌐 Все организации</div>';
@@ -882,9 +880,9 @@ function hideOrgDd(){
 }
 
 function selectOrg(id){
-  var org=allOrgs.find(function(o){return o.id==id});
+  var org=AppState.allOrgs.find(function(o){return o.id==id});
   var name=org?(org.name||org.title||String(id)):String(id);
-  selectedOrgId=id;
+  AppState.selectedOrgId=id;
   document.getElementById('org-inp').value=name;
   var clr=document.getElementById('org-clr');
   clr.style.display='flex';
@@ -892,7 +890,7 @@ function selectOrg(id){
 }
 
 function clearOrg(){
-  selectedOrgId=null;
+  AppState.selectedOrgId=null;
   document.getElementById('org-inp').value='';
   document.getElementById('org-clr').style.display='none';
   hideOrgDd();
@@ -905,7 +903,7 @@ document.addEventListener('click',function(e){
 
 // ─── BUTTON CONFIG ───
 function initBtnCfg(){
-  actionButtons=[
+  AppState.actionButtons=[
     {label:'Утверждено',statusId:'',stageId:'2',color:'#16a34a'},
     {label:'Доработка',statusId:'',stageId:'1',color:'#ea580c'}
   ];
@@ -915,18 +913,18 @@ function initBtnCfg(){
 
 function loadStatusesForBtns(){
   // Already loaded by loadStatuses; re-render after load
-  if(allStatuses.length) renderBtnCfg();
+  if(AppState.allStatuses.length) renderBtnCfg();
   else setTimeout(loadStatusesForBtns,500);
 }
 
 function renderBtnCfg(){
   var list=document.getElementById('btn-cfg-list');
   list.innerHTML='';
-  actionButtons.forEach(function(b,i){
+  AppState.actionButtons.forEach(function(b,i){
     var row=document.createElement('div');
     row.className='btn-cfg-row';
     var statusOpts='<option value="">-- Статус --</option>';
-    allStatuses.forEach(function(s){
+    AppState.allStatuses.forEach(function(s){
       var n=s.name||s.title||String(s.id);
       var sel=(String(s.id)===String(b.statusId))||(!b.statusId&&n.toLowerCase().indexOf(b.label.toLowerCase().split(' ')[0])>=0);
       statusOpts+='<option value="'+s.id+'"'+(sel?' selected':'')+'>'+esc(n)+'</option>';
@@ -939,25 +937,25 @@ function renderBtnCfg(){
       '<select class="btn-cfg-status" onchange="updateBtn('+i+',\'statusId\',this.value)">'+statusOpts+'</select>'+
       '<select class="btn-cfg-stage" onchange="updateBtn('+i+',\'stageId\',this.value)" title="Стадия карточки">'+stageOpts+'</select>'+
       '<input class="btn-cfg-color" type="color" value="'+b.color+'" oninput="updateBtn('+i+',\'color\',this.value)">'+
-      (actionButtons.length>1?'<button class="btn-cfg-del" onclick="delBtn('+i+')" title="Удалить">✕</button>':'');
+      (AppState.actionButtons.length>1?'<button class="btn-cfg-del" onclick="delBtn('+i+')" title="Удалить">✕</button>':'');
     list.appendChild(row);
   });
   var addBtn=document.getElementById('add-btn-cfg');
-  if(addBtn) addBtn.style.display=actionButtons.length>=5?'none':'';
+  if(addBtn) addBtn.style.display=AppState.actionButtons.length>=5?'none':'';
 }
 
 function updateBtn(i,key,val){
-  if(actionButtons[i]) actionButtons[i][key]=val;
+  if(AppState.actionButtons[i]) AppState.actionButtons[i][key]=val;
 }
 
 function addBtnCfg(){
-  if(actionButtons.length>=5) return;
-  actionButtons.push({label:'Кнопка '+(actionButtons.length+1),statusId:'',stageId:'1',color:COLORS[actionButtons.length%COLORS.length]});
+  if(AppState.actionButtons.length>=5) return;
+  AppState.actionButtons.push({label:'Кнопка '+(AppState.actionButtons.length+1),statusId:'',stageId:'1',color:AppState.COLORS[AppState.actionButtons.length%AppState.COLORS.length]});
   renderBtnCfg();
 }
 
 function delBtn(i){
-  actionButtons.splice(i,1);
+  AppState.actionButtons.splice(i,1);
   renderBtnCfg();
 }
 
@@ -971,37 +969,37 @@ function startReview(){
   if(!typeId){alert('Выберите вид задания');return}
   if(!statusId){alert('Выберите этап (статус)');return}
   if(!stageVal){alert('Выберите стадию карточки');return}
-  var validBtns=actionButtons.filter(function(b){return b.label.trim()&&b.statusId});
+  var validBtns=AppState.actionButtons.filter(function(b){return b.label.trim()&&b.statusId});
   if(!validBtns.length){alert('Настройте хотя бы одну кнопку решения с выбранным статусом');return}
-  actionButtons=validBtns;
+  AppState.actionButtons=validBtns;
 
-  tasks=[]; idx=0; decisions={}; submitStatus={}; submitQueue=[];
+  AppState.tasks=[]; AppState.idx=0; AppState.decisions={}; AppState.submitStatus={}; AppState.submitQueue=[];
 
   show('scr-viewer');
   document.getElementById('task-loader').style.display='flex';
   document.getElementById('task-card-wrap').classList.add('hidden');
 
   var stageId=(stageVal==='all')?'':stageVal;
-  var url='/proxy/tasks?apiVersion=2.0&limit=500&type_id='+typeId+'&onlyStatus='+statusId;
+  var url='/proxy/AppState.tasks?apiVersion=2.0&limit=500&type_id='+typeId+'&onlyStatus='+statusId;
   if(stageId) url+='&stage='+stageId;
-  if(selectedOrgId) url+='&'+orgParamName+'='+selectedOrgId;
+  if(AppState.selectedOrgId) url+='&'+AppState.orgParamName+'='+AppState.selectedOrgId;
   var df=document.getElementById('date-from').value;
   var dt=document.getElementById('date-to').value;
   if(df) url+='&dateFrom='+df;
   if(dt) url+='&dateTo='+dt;
-  _lastTaskUrl=url;
+  AppState._lastTaskUrl=url;
 
   fetch(url)
   .then(function(r){return r.json()})
   .then(function(d){
-    tasks=Array.isArray(d)?d:(d.data||d.items||d.tasks||[]);
-    var limitWarning=tasks.length>=500?' ⚠ Достигнут лимит 500 — возможно, не все задания загружены':'';
-    document.getElementById('task-loader-text').textContent='Загружено: '+tasks.length+' заданий'+limitWarning;
+    AppState.tasks=Array.isArray(d)?d:(d.data||d.items||d.AppState.tasks||[]);
+    var limitWarning=AppState.tasks.length>=500?' ⚠ Достигнут лимит 500 — возможно, не все задания загружены':'';
+    document.getElementById('task-loader-text').textContent='Загружено: '+AppState.tasks.length+' заданий'+limitWarning;
     setTimeout(function(){ document.getElementById('task-loader').style.display='none'; }, 800);
-    if(tasks.length>=500){
+    if(AppState.tasks.length>=500){
       console.warn('[LIMIT] Загружено 500 заданий — API лимит достигнут. Часть заданий может быть не загружена.');
     }
-    if(!tasks.length){
+    if(!AppState.tasks.length){
       document.getElementById('task-card-wrap').classList.remove('hidden');
       document.getElementById('tc-title').textContent='Задания не найдены';
       document.getElementById('tc-num').textContent='';
@@ -1026,25 +1024,24 @@ function startReview(){
 }
 
 // Перезагрузить список не уходя с экрана просмотра
-var _lastTaskUrl='';
 function reloadTasks(){
-  if(!_lastTaskUrl){alert('Сначала начните проверку через Настройки');return}
+  if(!AppState._lastTaskUrl){alert('Сначала начните проверку через Настройки');return}
   if(!confirm('Обновить список заданий?\nРешения в текущей сессии сохранятся в истории, но список начнётся заново.')) return;
   var btn=document.getElementById('btn-reload');
   btn.disabled=true; btn.textContent='⏳ Загрузка...';
-  decisions={}; submitStatus={}; submitQueue=[];
-  taskDetailCache={}; taskDetailLoading={};
-  tasks=[]; idx=0;
+  AppState.decisions={}; AppState.submitStatus={}; AppState.submitQueue=[];
+  AppState.taskDetailCache={}; AppState.taskDetailLoading={};
+  AppState.tasks=[]; AppState.idx=0;
   document.getElementById('task-loader').style.display='flex';
   document.getElementById('task-card-wrap').classList.add('hidden');
-  fetch(_lastTaskUrl)
+  fetch(AppState._lastTaskUrl)
   .then(function(r){return r.json()})
   .then(function(d){
-    tasks=Array.isArray(d)?d:(d.data||d.items||d.tasks||[]);
+    AppState.tasks=Array.isArray(d)?d:(d.data||d.items||d.AppState.tasks||[]);
     document.getElementById('task-loader').style.display='none';
     btn.disabled=false; btn.textContent='🔄 Обновить';
-    if(tasks.length>=500) console.warn('[LIMIT] Лимит 500 достигнут при перезагрузке.');
-    if(!tasks.length){
+    if(AppState.tasks.length>=500) console.warn('[LIMIT] Лимит 500 достигнут при перезагрузке.');
+    if(!AppState.tasks.length){
       document.getElementById('tc-title').textContent='Заданий не найдено';
       document.getElementById('task-card-wrap').classList.remove('hidden');
       return;
@@ -1063,16 +1060,16 @@ function reloadTasks(){
 //  RENDER TASK
 // ═══════════════════════════════════════════════════════════
 function renderTask(){
-  if(!tasks.length) return;
-  var t=tasks[idx];
+  if(!AppState.tasks.length) return;
+  var t=AppState.tasks[AppState.idx];
   if(!t) return;
   document.getElementById('task-card-wrap').classList.remove('hidden');
 
   // Header
   var taskNo = t.no||t.number||t.num||t.externalId||t.id||'';
-  document.getElementById('tc-num').textContent='Задание '+(idx+1)+' / '+tasks.length+(taskNo?' · #'+taskNo:'');
+  document.getElementById('tc-num').textContent='Задание '+(AppState.idx+1)+' / '+AppState.tasks.length+(taskNo?' · #'+taskNo:'');
   document.getElementById('tc-title').textContent=t.title||t.name||('Задание #'+t.id);
-  document.getElementById('tc-type').textContent=t.typeName||t.type||t.typeTitle||selectedTypeName;
+  document.getElementById('tc-type').textContent=t.typeName||t.type||t.typeTitle||AppState.selectedTypeName;
   document.getElementById('tc-org').textContent=t.contractorName||t.organizationName||t.organization||t.assignedTo||'';
   document.getElementById('tc-status').textContent=t.statusName||t.status||t.stageTitle||'';
   var dt=t.planDate||t.date||t.createdAt||t.created_at||'';
@@ -1105,14 +1102,14 @@ function renderTask(){
   renderDecisionBtns(t.id);
 
   // Nav buttons
-  document.getElementById('btn-prev').disabled=(idx===0);
-  var last=(idx===tasks.length-1);
+  document.getElementById('btn-prev').disabled=(AppState.idx===0);
+  var last=(AppState.idx===AppState.tasks.length-1);
   document.getElementById('btn-next').style.display=last?'none':'';
   document.getElementById('btn-finish').style.display=last?'':'none';
 
   // Topbar
-  document.getElementById('viewer-task-info').textContent=selectedTypeName||'';
-  document.getElementById('topbar-progress').textContent=(idx+1)+'/'+tasks.length;
+  document.getElementById('viewer-task-info').textContent=AppState.selectedTypeName||'';
+  document.getElementById('topbar-progress').textContent=(AppState.idx+1)+'/'+AppState.tasks.length;
 
   updateTopStats();
   renderHist();
@@ -1120,23 +1117,23 @@ function renderTask(){
 
 // ── Загружаем детали задания (фото + кастомные поля) ──────────────────────
 function fetchTaskDetail(taskId){
-  if(taskDetailCache[taskId]){
-    renderPhotos(taskId, taskDetailCache[taskId].photos);
-    renderCustomFields(taskDetailCache[taskId].customFields);
+  if(AppState.taskDetailCache[taskId]){
+    renderPhotos(taskId, AppState.taskDetailCache[taskId].photos);
+    renderCustomFields(AppState.taskDetailCache[taskId].customFields);
     return;
   }
-  if(taskDetailLoading[taskId]) return;
-  taskDetailLoading[taskId]=true;
+  if(AppState.taskDetailLoading[taskId]) return;
+  AppState.taskDetailLoading[taskId]=true;
 
   // Получаем photoCount из списка заданий (там может быть поле)
-  var taskInList=tasks.find(function(t){return t.id===taskId});
+  var taskInList=AppState.tasks.find(function(t){return t.id===taskId});
   // num_main_photo — это ИНДЕКС главного фото, не количество! Не используем его здесь.
   var pcFromList=taskInList
     ?(taskInList.added_photo_count||taskInList.photoCount||taskInList.photosCount||
       taskInList.photos_count||taskInList.countPhotos||taskInList.photo_count||0)
     :0;
 
-  fetch('/proxy/tasks/'+taskId+'?apiVersion=2.0')
+  fetch('/proxy/AppState.tasks/'+taskId+'?apiVersion=2.0')
   .then(function(r){return r.json()})
   .then(function(d){
     var detail=d.data||d.task||d;
@@ -1152,8 +1149,8 @@ function fetchTaskDetail(taskId){
     var imgExts=['jpg','jpeg','png','gif','webp','bmp','heic','tiff','avif'];
     if(Array.isArray(detail.photos)&&detail.photos.length){
       photos=detail.photos.map(function(p,i){
-        if(typeof p==='string') return '/proxy/tasks/'+taskId+'/photos/'+(i+1);
-        return p.url||p.src||p.link||p.path||('/proxy/tasks/'+taskId+'/photos/'+(i+1));
+        if(typeof p==='string') return '/proxy/AppState.tasks/'+taskId+'/photos/'+(i+1);
+        return p.url||p.src||p.link||p.path||('/proxy/AppState.tasks/'+taskId+'/photos/'+(i+1));
       });
     }
     if(!photos.length&&Array.isArray(detail.attachments)&&detail.attachments.length){
@@ -1166,11 +1163,11 @@ function fetchTaskDetail(taskId){
                  (a.mimeType&&a.mimeType.indexOf('image')>=0)||a.url||a.src;
         })
         .map(function(a,i){
-          return a.url||a.src||a.path||('/proxy/tasks/'+taskId+'/photos/'+(a.num||i+1));
+          return a.url||a.src||a.path||('/proxy/AppState.tasks/'+taskId+'/photos/'+(a.num||i+1));
         });
     }
     if(!photos.length&&pc>0){
-      for(var i=1;i<=pc;i++) photos.push('/proxy/tasks/'+taskId+'/photos/'+i);
+      for(var i=1;i<=pc;i++) photos.push('/proxy/AppState.tasks/'+taskId+'/photos/'+i);
     }
 
     // Кастомные поля
@@ -1233,8 +1230,8 @@ function fetchTaskDetail(taskId){
       // Fallback: пробуем запросить фото 1 напрямую
       probePhotos(taskId, 1, [], cf);
     } else {
-      taskDetailCache[taskId]={photos:photos,customFields:cf};
-      if(tasks[idx]&&tasks[idx].id===taskId){
+      AppState.taskDetailCache[taskId]={photos:photos,customFields:cf};
+      if(AppState.tasks[AppState.idx]&&AppState.tasks[AppState.idx].id===taskId){
         renderPhotos(taskId,photos);
         renderCustomFields(cf);
       }
@@ -1244,10 +1241,10 @@ function fetchTaskDetail(taskId){
     console.error('[task detail error]', taskId, e);
     var photos=[];
     if(pcFromList>0){
-      for(var i=1;i<=pcFromList;i++) photos.push('/proxy/tasks/'+taskId+'/photos/'+i);
+      for(var i=1;i<=pcFromList;i++) photos.push('/proxy/AppState.tasks/'+taskId+'/photos/'+i);
     }
-    taskDetailCache[taskId]={photos:photos,customFields:[]};
-    if(tasks[idx]&&tasks[idx].id===taskId){
+    AppState.taskDetailCache[taskId]={photos:photos,customFields:[]};
+    if(AppState.tasks[AppState.idx]&&AppState.tasks[AppState.idx].id===taskId){
       renderPhotos(taskId,photos);
       document.getElementById('tc-custom-fields').innerHTML='';
     }
@@ -1257,7 +1254,7 @@ function fetchTaskDetail(taskId){
 // Пробуем фото по номеру — если 200, добавляем и пробуем следующий
 function probePhotos(taskId, num, acc, cf){
   if(num>15){ finalizePhotos(taskId, acc, cf); return; }
-  var url='/proxy/tasks/'+taskId+'/photos/'+num;
+  var url='/proxy/AppState.tasks/'+taskId+'/photos/'+num;
   fetch(url,{method:'HEAD'}).then(function(r){
     if(r.ok){
       acc.push(url);
@@ -1271,8 +1268,8 @@ function probePhotos(taskId, num, acc, cf){
 }
 
 function finalizePhotos(taskId, photos, cf){
-  taskDetailCache[taskId]={photos:photos,customFields:cf||[]};
-  if(tasks[idx]&&tasks[idx].id===taskId){
+  AppState.taskDetailCache[taskId]={photos:photos,customFields:cf||[]};
+  if(AppState.tasks[AppState.idx]&&AppState.tasks[AppState.idx].id===taskId){
     renderPhotos(taskId,photos);
     renderCustomFields(cf||[]);
   }
@@ -1419,7 +1416,7 @@ function lbShow(){
 
 function updateSubmitPill(taskId){
   var pill=document.getElementById('submit-pill');
-  var st=submitStatus[taskId];
+  var st=AppState.submitStatus[taskId];
   pill.className='submit-pill';
   if(st==='q'){
     pill.classList.add('pending'); pill.textContent='⏳ Отправляется...'; pill.style.display='inline-flex';
@@ -1435,13 +1432,13 @@ function updateSubmitPill(taskId){
 function renderDecisionBtns(taskId){
   var area=document.getElementById('decision-btns');
   area.innerHTML='';
-  var curDec=decisions[taskId];
-  actionButtons.forEach(function(b,i){
+  var curDec=AppState.decisions[taskId];
+  AppState.actionButtons.forEach(function(b,i){
     var btn=document.createElement('button');
     btn.className='dec-btn'+(curDec===i?' active':'');
     btn.style.background=b.color;
     btn.textContent=(i+1)+'. '+b.label;
-    btn.setAttribute('data-dec-idx',String(i));
+    btn.setAttribute('data-dec-AppState.idx',String(i));
     btn.onclick=function(){decide(taskId,i)};
     area.appendChild(btn);
   });
@@ -1456,7 +1453,7 @@ function renderDecisionBtns(taskId){
   var hints=document.getElementById('kb-hints');
   if(hints){
     var h='';
-    actionButtons.forEach(function(b,i){
+    AppState.actionButtons.forEach(function(b,i){
       h+='<span class="kb-hint"><span class="kb-key">'+(i+1)+'</span>'+b.label+'</span>';
     });
     h+='<span class="kb-hint"><span class="kb-key">S</span>Пропуск</span>';
@@ -1469,23 +1466,23 @@ function renderDecisionBtns(taskId){
 //  SUBMIT
 // ═══════════════════════════════════════════════════════════
 function decide(taskId,btnIdx){
-  decisions[taskId]=btnIdx;
+  AppState.decisions[taskId]=btnIdx;
   // Visual highlight
   document.querySelectorAll('.dec-btn').forEach(function(b){b.classList.remove('active')});
   if(btnIdx===-1){
     var skip=document.querySelector('.skip-btn');
     if(skip) skip.classList.add('active');
   } else {
-    var btn=document.querySelector('[data-dec-idx="'+btnIdx+'"]');
+    var btn=document.querySelector('[data-dec-AppState.idx="'+btnIdx+'"]');
     if(btn) btn.classList.add('active');
   }
   // Queue submission if real decision
   // Если уже было успешно отправлено — позволяем переотправить (пользователь мог ошибиться)
-  if(btnIdx>=0 && btnIdx<actionButtons.length){
-    var statusId=actionButtons[btnIdx].statusId;
+  if(btnIdx>=0 && btnIdx<AppState.actionButtons.length){
+    var statusId=AppState.actionButtons[btnIdx].statusId;
     if(statusId){
-      submitStatus[taskId]='q';
-      if(!submitQueue.includes(taskId)) submitQueue.push(taskId);
+      AppState.submitStatus[taskId]='q';
+      if(!AppState.submitQueue.includes(taskId)) AppState.submitQueue.push(taskId);
       kickQueue();
       updateSubmitPill(taskId);
     }
@@ -1495,39 +1492,39 @@ function decide(taskId,btnIdx){
 }
 
 function kickQueue(){
-  if(submitRunning||!submitQueue.length) return;
-  submitRunning=true;
+  if(AppState.submitRunning||!AppState.submitQueue.length) return;
+  AppState.submitRunning=true;
   processNext();
 }
 
 function processNext(){
-  if(!submitQueue.length){submitRunning=false;updateTopStats();return}
-  var taskId=submitQueue.shift();
-  var btnIdx=decisions[taskId];
-  if(btnIdx===undefined||btnIdx<0||btnIdx>=actionButtons.length){
+  if(!AppState.submitQueue.length){AppState.submitRunning=false;updateTopStats();return}
+  var taskId=AppState.submitQueue.shift();
+  var btnIdx=AppState.decisions[taskId];
+  if(btnIdx===undefined||btnIdx<0||btnIdx>=AppState.actionButtons.length){
     processNext(); return;
   }
-  var statusId=actionButtons[btnIdx].statusId;
+  var statusId=AppState.actionButtons[btnIdx].statusId;
   if(!statusId){processNext();return}
-  submitStatus[taskId]='q';
+  AppState.submitStatus[taskId]='q';
   updateTopStats();
-  if(tasks[idx]&&tasks[idx].id==taskId) updateSubmitPill(taskId);
-  var stageId=actionButtons[btnIdx].stageId;
+  if(AppState.tasks[AppState.idx]&&AppState.tasks[AppState.idx].id==taskId) updateSubmitPill(taskId);
+  var stageId=AppState.actionButtons[btnIdx].stageId;
   var patchBody={status_id:Number(statusId),statusId:Number(statusId)};
   if(stageId) patchBody.stage=Number(stageId);
   fetch('/patch/'+taskId,{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify(patchBody)})
   .then(function(r){
     if(!r.ok) throw new Error('HTTP '+r.status);
-    submitStatus[taskId]='ok';
+    AppState.submitStatus[taskId]='ok';
   })
   .catch(function(){
-    submitStatus[taskId]='err';
+    AppState.submitStatus[taskId]='err';
   })
   .then(function(){
-    if(tasks[idx]&&tasks[idx].id==taskId) updateSubmitPill(taskId);
+    if(AppState.tasks[AppState.idx]&&AppState.tasks[AppState.idx].id==taskId) updateSubmitPill(taskId);
     updateTopStats(); renderHist();
-    setTimeout(processNext, SUBMIT_GAP);
+    setTimeout(processNext, AppState.SUBMIT_GAP);
   });
 }
 
@@ -1536,9 +1533,9 @@ function processNext(){
 // ═══════════════════════════════════════════════════════════
 function updateTopStats(){
   var ok=0,pend=0,err=0,skip=0;
-  tasks.forEach(function(t){
-    var d=decisions[t.id];
-    var s=submitStatus[t.id];
+  AppState.tasks.forEach(function(t){
+    var d=AppState.decisions[t.id];
+    var s=AppState.submitStatus[t.id];
     if(d===-1) skip++;
     else if(d>=0){
       if(s==='ok') ok++;
@@ -1554,20 +1551,20 @@ function updateTopStats(){
   document.getElementById('stat-skip').style.display=skip?'flex':'none';
 
   // Progress bar
-  var decided=Object.keys(decisions).length;
-  var pct=tasks.length?Math.round(decided/tasks.length*100):0;
+  var decided=Object.keys(AppState.decisions).length;
+  var pct=AppState.tasks.length?Math.round(decided/AppState.tasks.length*100):0;
   document.getElementById('submit-fill').style.width=pct+'%';
   document.getElementById('submit-progress-text').textContent=
-    decided?('Обработано: '+decided+' из '+tasks.length+' ('+pct+'%)'):'';
+    decided?('Обработано: '+decided+' из '+AppState.tasks.length+' ('+pct+'%)'):'';
 }
 
 // ═══════════════════════════════════════════════════════════
 //  NAVIGATION
 // ═══════════════════════════════════════════════════════════
 function navigate(dir){
-  var newIdx=idx+dir;
-  if(newIdx<0||newIdx>=tasks.length) return;
-  idx=newIdx;
+  var newIdx=AppState.idx+dir;
+  if(newIdx<0||newIdx>=AppState.tasks.length) return;
+  AppState.idx=newIdx;
   renderTask();
 }
 
@@ -1581,11 +1578,11 @@ function finishReview(){
 }
 
 function sendRemaining(){
-  tasks.forEach(function(t){
-    var d=decisions[t.id];
-    if(d>=0&&d<actionButtons.length&&submitStatus[t.id]!=='ok'&&submitStatus[t.id]!=='q'){
-      submitStatus[t.id]='q';
-      submitQueue.push(t.id);
+  AppState.tasks.forEach(function(t){
+    var d=AppState.decisions[t.id];
+    if(d>=0&&d<AppState.actionButtons.length&&AppState.submitStatus[t.id]!=='ok'&&AppState.submitStatus[t.id]!=='q'){
+      AppState.submitStatus[t.id]='q';
+      AppState.submitQueue.push(t.id);
     }
   });
   kickQueue();
@@ -1597,21 +1594,21 @@ function sendRemaining(){
 function renderHist(){
   var list=document.getElementById('hist-list');
   if(!list) return;
-  var decided=tasks.filter(function(t){return decisions[t.id]!==undefined});
+  var decided=AppState.tasks.filter(function(t){return AppState.decisions[t.id]!==undefined});
   if(!decided.length){
     list.innerHTML='<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px">Ещё нет решений</div>';
     return;
   }
   var html='';
   decided.forEach(function(t,n){
-    var d=decisions[t.id];
-    var st=submitStatus[t.id];
-    var isCur=(tasks[idx]&&tasks[idx].id===t.id);
+    var d=AppState.decisions[t.id];
+    var st=AppState.submitStatus[t.id];
+    var isCur=(AppState.tasks[AppState.idx]&&AppState.tasks[AppState.idx].id===t.id);
     var decLabel=''; var decColor='#475569';
     if(d===-1){decLabel='⏭ Пропуск';decColor='#475569';}
-    else if(d>=0&&d<actionButtons.length){decLabel=actionButtons[d].label;decColor=actionButtons[d].color;}
+    else if(d>=0&&d<AppState.actionButtons.length){decLabel=AppState.actionButtons[d].label;decColor=AppState.actionButtons[d].color;}
     var subIcon=st==='ok'?'✅':st==='err'?'❌':st==='q'?'⏳':'';
-    var tidx=tasks.indexOf(t);
+    var tidx=AppState.tasks.indexOf(t);
     html+='<div class="hist-item'+(isCur?' current':'')+'" onclick="jumpTo('+tidx+')">'+
       '<span class="hi-num">'+(n+1)+'</span>'+
       '<span class="hi-name">'+esc(t.title||t.name||'Задание #'+t.id)+'</span>'+
@@ -1623,7 +1620,7 @@ function renderHist(){
 }
 
 function jumpTo(i){
-  idx=i; renderTask(); hideHist();
+  AppState.idx=i; renderTask(); hideHist();
 }
 
 function showHist(){
@@ -1641,17 +1638,17 @@ function hideHist(){
 //  SUMMARY
 // ═══════════════════════════════════════════════════════════
 function renderSummary(){
-  var total=tasks.length;
-  var decided=tasks.filter(function(t){return decisions[t.id]!==undefined&&decisions[t.id]>=0}).length;
-  var skipped=tasks.filter(function(t){return decisions[t.id]===-1}).length;
+  var total=AppState.tasks.length;
+  var decided=AppState.tasks.filter(function(t){return AppState.decisions[t.id]!==undefined&&AppState.decisions[t.id]>=0}).length;
+  var skipped=AppState.tasks.filter(function(t){return AppState.decisions[t.id]===-1}).length;
   document.getElementById('sum-total').textContent=total;
   document.getElementById('sum-decided').textContent=decided;
   document.getElementById('sum-skipped').textContent=skipped;
 
   // Per-button breakdown
   var html='';
-  actionButtons.forEach(function(b,i){
-    var cnt=tasks.filter(function(t){return decisions[t.id]===i}).length;
+  AppState.actionButtons.forEach(function(b,i){
+    var cnt=AppState.tasks.filter(function(t){return AppState.decisions[t.id]===i}).length;
     if(!cnt) return;
     html+='<div class="sum-dec-stat"><div class="sum-dec-dot" style="background:'+b.color+'"></div>'+
       '<span class="sum-dec-lbl">'+esc(b.label)+'</span>'+
@@ -1663,14 +1660,14 @@ function renderSummary(){
   // Keep updating as queue processes
   var check=setInterval(function(){
     updateSummarySubmit();
-    if(!submitQueue.length&&!submitRunning) clearInterval(check);
+    if(!AppState.submitQueue.length&&!AppState.submitRunning) clearInterval(check);
   },600);
 }
 
 function updateSummarySubmit(){
   var ok=0,pend=0,err=0;
-  tasks.forEach(function(t){
-    var s=submitStatus[t.id];
+  AppState.tasks.forEach(function(t){
+    var s=AppState.submitStatus[t.id];
     if(s==='ok') ok++;
     else if(s==='err') err++;
     else if(s==='q') pend++;
@@ -1685,8 +1682,8 @@ function updateSummarySubmit(){
 
   // Error list
   var errHtml='';
-  tasks.forEach(function(t){
-    if(submitStatus[t.id]==='err'){
+  AppState.tasks.forEach(function(t){
+    if(AppState.submitStatus[t.id]==='err'){
       errHtml+='<div class="err-item">'+
         '<span class="ei-name">'+esc(t.title||t.name||'#'+t.id)+'</span>'+
         '<button class="ei-retry" onclick="retryTask('+t.id+')">Повторить</button></div>';
@@ -1697,16 +1694,16 @@ function updateSummarySubmit(){
 }
 
 function retryTask(taskId){
-  if(submitStatus[taskId]==='err'){
-    submitStatus[taskId]='q';
-    submitQueue.push(taskId);
+  if(AppState.submitStatus[taskId]==='err'){
+    AppState.submitStatus[taskId]='q';
+    AppState.submitQueue.push(taskId);
     kickQueue();
   }
 }
 
 function retryFailed(){
-  tasks.forEach(function(t){
-    if(submitStatus[t.id]==='err') retryTask(t.id);
+  AppState.tasks.forEach(function(t){
+    if(AppState.submitStatus[t.id]==='err') retryTask(t.id);
   });
 }
 
@@ -1734,7 +1731,7 @@ function esc(s){
 //  БАГ-РЕПОРТ
 // ═══════════════════════════════════════════════════════════
 function showBugReport(){
-  var t=tasks[idx];
+  var t=AppState.tasks[AppState.idx];
   var no=t?(t.no||t.number||t.id||''):'';
   document.getElementById('br-taskno').value=no?('#'+no):'';
   document.getElementById('br-desc').value='';

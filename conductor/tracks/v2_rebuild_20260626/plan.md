@@ -23,8 +23,8 @@
 
 > Goal: Restructure reviewer_html.html — AppState object, fix silent errors, button locking.
 
-- [x] Task 2.1: Add section comments to HTML (`<!-- STATE -->`, `<!-- API -->`, `<!-- UI -->`, `<!-- LIGHTBOX -->`, `<!-- SUBMIT -->`)
-- [ ] Task 2.2: Consolidate ~20 global variables into `AppState` object; update all references
+- [x] Task 2.1: Add section comments to HTML (`<!-- STATE -->`, `<!-- API -->`, `<!-- UI -->`, `<!-- LIGHTBOX -->`, `<!-- SUBMIT -->`) [121cfa8]
+- [x] Task 2.2: Consolidate ~20 global variables into `AppState` object; update all references
 - [ ] Task 2.3: Extract `LightboxState` object (photos, curIdx, zoom, dx, dy)
 - [ ] Task 2.4: Replace all `.catch(function(){})` with handlers that log + show user error
 - [ ] Task 2.5: Add button locking — disable decision buttons on click, re-enable on PATCH response
