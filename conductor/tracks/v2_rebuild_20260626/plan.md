@@ -19,7 +19,7 @@
 
 ---
 
-## Phase 2: Frontend Refactor
+## Phase 2: Frontend Refactor [checkpoint: 00b3c66]
 
 > Goal: Restructure reviewer_html.html — AppState object, fix silent errors, button locking.
 
@@ -28,9 +28,9 @@
 - [x] Task 2.3: Extract `LightboxState` object (photos, curIdx, zoom, dx, dy) [354fc4e]
 - [x] Task 2.4: Replace all `.catch(function(){})` with handlers that log + show user error [e32ac89]
 - [x] Task 2.5: Add button locking — disable decision buttons on click, re-enable on PATCH response [50c793b]
-- [x] Task 2.6: Fix `POST /patch` — show error card with "Повторить" if PATCH fails
-- [ ] Task 2.7: Manual test — navigate 20 tasks, apply decisions, verify no console errors
-- [ ] Task: Conductor - User Manual Verification 'Frontend Refactor' (Protocol in workflow.md)
+- [x] Task 2.6: Fix `POST /patch` — show error card with "Повторить" if PATCH fails [65321ee]
+- [x] Task 2.7: Manual test — navigate 20 tasks, apply decisions, verify no console errors [00b3c66]
+- [x] Task: Conductor - User Manual Verification 'Frontend Refactor' (Protocol in workflow.md) [00b3c66]
 
 ---
 
@@ -38,11 +38,11 @@
 
 > Goal: localStorage for settings — filters and decision buttons persist between sessions.
 
-- [ ] Task 3.1: Save filter settings to localStorage on "Начать проверку"
-- [ ] Task 3.2: Restore filter settings from localStorage on scr-setup load
-- [ ] Task 3.3: Save decision buttons config to localStorage on any change
-- [ ] Task 3.4: Restore decision buttons from localStorage on scr-setup load
-- [ ] Task 3.5: Add loading indicator while organizations are being fetched
+- [x] Task 3.1: Save filter settings to localStorage on "Начать проверку"
+- [x] Task 3.2: Restore filter settings from localStorage on scr-setup load
+- [x] Task 3.3: Save decision buttons config to localStorage on any change
+- [x] Task 3.4: Restore decision buttons from localStorage on scr-setup load
+- [x] Task 3.5: Add loading indicator while organizations are being fetched
 - [ ] Task 3.6: Manual test — configure filters + buttons, restart app, verify settings restored
 - [ ] Task: Conductor - User Manual Verification 'Persistence' (Protocol in workflow.md)
 

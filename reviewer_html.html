@@ -643,7 +643,41 @@ function showErr(el,msg){el.textContent=msg;el.style.display='block'}
 // ═══════════════════════════════════════════════════════════
 
 // ── Setup Data Loading ───────────────────────────────────
+function saveFilters(){
+  try{
+    var filters={
+      typeId:document.getElementById('type-select').value,
+      statusId:document.getElementById('status-select').value,
+      stageVal:document.getElementById('stage-select').value,
+      dateFrom:document.getElementById('date-from').value,
+      dateTo:document.getElementById('date-to').value,
+      orgId:AppState.selectedOrgId,
+      orgName:document.getElementById('org-inp').value
+    };
+    localStorage.setItem('amr_filters',JSON.stringify(filters));
+  }catch(e){}
+}
+
+function restoreFilters(){
+  try{
+    var saved=JSON.parse(localStorage.getItem('amr_filters')||'null');
+    if(!saved) return;
+    if(saved.typeId) AppState.selectedTypeId=saved.typeId;
+    if(saved.statusId) AppState._savedStatusId=saved.statusId;
+    if(saved.stageVal){var stg=document.getElementById('stage-select');if(stg) stg.value=saved.stageVal;}
+    if(saved.dateFrom) document.getElementById('date-from').value=saved.dateFrom;
+    if(saved.dateTo) document.getElementById('date-to').value=saved.dateTo;
+    if(saved.orgId){
+      AppState.selectedOrgId=saved.orgId;
+      document.getElementById('org-inp').value=saved.orgName||'';
+      var clr=document.getElementById('org-clr');
+      if(clr) clr.style.display='flex';
+    }
+  }catch(e){}
+}
+
 function loadSetupData(){
+  restoreFilters();
   loadStatuses();
   loadTypes();
   loadOrgs();
@@ -665,6 +699,7 @@ function loadStatuses(){
       if(n.toLowerCase().indexOf('выполн')>=0) o.selected=true;
       sel.appendChild(o);
     });
+    if(AppState._savedStatusId) sel.value=AppState._savedStatusId;
     if(!sel.value&&items.length) sel.selectedIndex=0;
   })
   .catch(function(e){console.error('statuses',e)});
@@ -798,6 +833,8 @@ function selectTypeById(id){
 // ─── ORG FILTER ───
 
 function loadOrgs(){
+  var _orgInp=document.getElementById('org-inp');
+  if(_orgInp){_orgInp.placeholder='Загрузка организаций...';_orgInp.disabled=true;}
   // Try endpoints in order: contractors, organizations, executors
   // Используем пагинацию чтобы загрузить ВСЕ организации
   var endpoints=[
@@ -829,7 +866,11 @@ function loadOrgs(){
   }
 
   function tryNext(i){
-    if(i>=endpoints.length){AppState.allOrgs=[];return;}
+    if(i>=endpoints.length){
+      AppState.allOrgs=[];
+      if(_orgInp){_orgInp.placeholder='🌐 Все организации';_orgInp.disabled=false;}
+      return;
+    }
     fetchAllPages(endpoints[i], function(err, items){
       if(err||!items||!items.length){ tryNext(i+1); return; }
       // Сортируем по имени
@@ -840,6 +881,7 @@ function loadOrgs(){
       });
       AppState.allOrgs=items;
       AppState.orgParamName=paramNames[i];
+      if(_orgInp){_orgInp.placeholder='🌐 Все организации';_orgInp.disabled=false;}
       console.log('[orgs] loaded '+items.length+' from '+endpoints[i]+', param='+AppState.orgParamName);
     });
   }
@@ -901,8 +943,14 @@ document.addEventListener('click',function(e){
 });
 
 // ─── BUTTON CONFIG ───
+function saveBtnCfg(){
+  try{localStorage.setItem('amr_buttons',JSON.stringify(AppState.actionButtons));}catch(e){}
+}
+
 function initBtnCfg(){
-  AppState.actionButtons=[
+  var saved=null;
+  try{saved=JSON.parse(localStorage.getItem('amr_buttons')||'null');}catch(e){}
+  AppState.actionButtons=saved&&saved.length?saved:[
     {label:'Утверждено',statusId:'',stageId:'2',color:'#16a34a'},
     {label:'Доработка',statusId:'',stageId:'1',color:'#ea580c'}
   ];
@@ -945,23 +993,27 @@ function renderBtnCfg(){
 
 function updateBtn(i,key,val){
   if(AppState.actionButtons[i]) AppState.actionButtons[i][key]=val;
+  saveBtnCfg();
 }
 
 function addBtnCfg(){
   if(AppState.actionButtons.length>=5) return;
   AppState.actionButtons.push({label:'Кнопка '+(AppState.actionButtons.length+1),statusId:'',stageId:'1',color:AppState.COLORS[AppState.actionButtons.length%AppState.COLORS.length]});
   renderBtnCfg();
+  saveBtnCfg();
 }
 
 function delBtn(i){
   AppState.actionButtons.splice(i,1);
   renderBtnCfg();
+  saveBtnCfg();
 }
 
 // ═══════════════════════════════════════════════════════════
 //  START REVIEW
 // ═══════════════════════════════════════════════════════════
 function startReview(){
+  saveFilters();
   var typeId=document.getElementById('type-select').value;
   var statusId=document.getElementById('status-select').value;
   var stageVal=document.getElementById('stage-select').value;
