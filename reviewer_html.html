@@ -979,7 +979,7 @@ function startReview(){
   document.getElementById('task-card-wrap').classList.add('hidden');
 
   var stageId=(stageVal==='all')?'':stageVal;
-  var url='/proxy/AppState.tasks?apiVersion=2.0&limit=500&type_id='+typeId+'&onlyStatus='+statusId;
+  var url='/proxy/tasks?apiVersion=2.0&limit=500&type_id='+typeId+'&onlyStatus='+statusId;
   if(stageId) url+='&stage='+stageId;
   if(AppState.selectedOrgId) url+='&'+AppState.orgParamName+'='+AppState.selectedOrgId;
   var df=document.getElementById('date-from').value;
@@ -991,7 +991,7 @@ function startReview(){
   fetch(url)
   .then(function(r){return r.json()})
   .then(function(d){
-    AppState.tasks=Array.isArray(d)?d:(d.data||d.items||d.AppState.tasks||[]);
+    AppState.tasks=Array.isArray(d)?d:(d.data||d.items||d.tasks||[]);
     var limitWarning=AppState.tasks.length>=500?' ⚠ Достигнут лимит 500 — возможно, не все задания загружены':'';
     document.getElementById('task-loader-text').textContent='Загружено: '+AppState.tasks.length+' заданий'+limitWarning;
     setTimeout(function(){ document.getElementById('task-loader').style.display='none'; }, 800);
@@ -1036,7 +1036,7 @@ function reloadTasks(){
   fetch(AppState._lastTaskUrl)
   .then(function(r){return r.json()})
   .then(function(d){
-    AppState.tasks=Array.isArray(d)?d:(d.data||d.items||d.AppState.tasks||[]);
+    AppState.tasks=Array.isArray(d)?d:(d.data||d.items||d.tasks||[]);
     document.getElementById('task-loader').style.display='none';
     btn.disabled=false; btn.textContent='🔄 Обновить';
     if(AppState.tasks.length>=500) console.warn('[LIMIT] Лимит 500 достигнут при перезагрузке.');
@@ -1132,7 +1132,7 @@ function fetchTaskDetail(taskId){
       taskInList.photos_count||taskInList.countPhotos||taskInList.photo_count||0)
     :0;
 
-  fetch('/proxy/AppState.tasks/'+taskId+'?apiVersion=2.0')
+  fetch('/proxy/tasks/'+taskId+'?apiVersion=2.0')
   .then(function(r){return r.json()})
   .then(function(d){
     var detail=d.data||d.task||d;
@@ -1148,8 +1148,8 @@ function fetchTaskDetail(taskId){
     var imgExts=['jpg','jpeg','png','gif','webp','bmp','heic','tiff','avif'];
     if(Array.isArray(detail.photos)&&detail.photos.length){
       photos=detail.photos.map(function(p,i){
-        if(typeof p==='string') return '/proxy/AppState.tasks/'+taskId+'/photos/'+(i+1);
-        return p.url||p.src||p.link||p.path||('/proxy/AppState.tasks/'+taskId+'/photos/'+(i+1));
+        if(typeof p==='string') return '/proxy/tasks/'+taskId+'/photos/'+(i+1);
+        return p.url||p.src||p.link||p.path||('/proxy/tasks/'+taskId+'/photos/'+(i+1));
       });
     }
     if(!photos.length&&Array.isArray(detail.attachments)&&detail.attachments.length){
@@ -1162,11 +1162,11 @@ function fetchTaskDetail(taskId){
                  (a.mimeType&&a.mimeType.indexOf('image')>=0)||a.url||a.src;
         })
         .map(function(a,i){
-          return a.url||a.src||a.path||('/proxy/AppState.tasks/'+taskId+'/photos/'+(a.num||i+1));
+          return a.url||a.src||a.path||('/proxy/tasks/'+taskId+'/photos/'+(a.num||i+1));
         });
     }
     if(!photos.length&&pc>0){
-      for(var i=1;i<=pc;i++) photos.push('/proxy/AppState.tasks/'+taskId+'/photos/'+i);
+      for(var i=1;i<=pc;i++) photos.push('/proxy/tasks/'+taskId+'/photos/'+i);
     }
 
     // Кастомные поля
@@ -1240,7 +1240,7 @@ function fetchTaskDetail(taskId){
     console.error('[task detail error]', taskId, e);
     var photos=[];
     if(pcFromList>0){
-      for(var i=1;i<=pcFromList;i++) photos.push('/proxy/AppState.tasks/'+taskId+'/photos/'+i);
+      for(var i=1;i<=pcFromList;i++) photos.push('/proxy/tasks/'+taskId+'/photos/'+i);
     }
     AppState.taskDetailCache[taskId]={photos:photos,customFields:[]};
     if(AppState.tasks[AppState.idx]&&AppState.tasks[AppState.idx].id===taskId){
@@ -1253,7 +1253,7 @@ function fetchTaskDetail(taskId){
 // Пробуем фото по номеру — если 200, добавляем и пробуем следующий
 function probePhotos(taskId, num, acc, cf){
   if(num>15){ finalizePhotos(taskId, acc, cf); return; }
-  var url='/proxy/AppState.tasks/'+taskId+'/photos/'+num;
+  var url='/proxy/tasks/'+taskId+'/photos/'+num;
   fetch(url,{method:'HEAD'}).then(function(r){
     if(r.ok){
       acc.push(url);
