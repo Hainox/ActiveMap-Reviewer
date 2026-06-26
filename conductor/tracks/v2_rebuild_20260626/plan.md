@@ -34,17 +34,17 @@
 
 ---
 
-## Phase 3: Persistence
+## Phase 3: Persistence [checkpoint: 540e450]
 
 > Goal: localStorage for settings — filters and decision buttons persist between sessions.
 
-- [x] Task 3.1: Save filter settings to localStorage on "Начать проверку"
-- [x] Task 3.2: Restore filter settings from localStorage on scr-setup load
-- [x] Task 3.3: Save decision buttons config to localStorage on any change
-- [x] Task 3.4: Restore decision buttons from localStorage on scr-setup load
-- [x] Task 3.5: Add loading indicator while organizations are being fetched
-- [ ] Task 3.6: Manual test — configure filters + buttons, restart app, verify settings restored
-- [ ] Task: Conductor - User Manual Verification 'Persistence' (Protocol in workflow.md)
+- [x] Task 3.1: Save filter settings to localStorage on "Начать проверку" [540e450]
+- [x] Task 3.2: Restore filter settings from localStorage on scr-setup load [540e450]
+- [x] Task 3.3: Save decision buttons config to localStorage on any change [540e450]
+- [x] Task 3.4: Restore decision buttons from localStorage on scr-setup load [540e450]
+- [x] Task 3.5: Add loading indicator while organizations are being fetched [540e450]
+- [x] Task 3.6: Manual test — configure filters + buttons, restart app, verify settings restored [540e450]
+- [x] Task: Conductor - User Manual Verification 'Persistence' (Protocol in workflow.md) [540e450]
 
 ---
 
@@ -52,9 +52,9 @@
 
 > Goal: Auto-pagination for tasks >500, CSV export, full session history.
 
-- [ ] Task 4.1: Replace "500 tasks limit" warning with automatic pagination
-- [ ] Task 4.2: Implement CSV export — taskId, taskNumber, decision label, status, stage, timestamp
-- [ ] Task 4.3: Ensure session history includes decisions from all pages
+- [x] Task 4.1: Replace "500 tasks limit" warning with automatic pagination
+- [x] Task 4.2: Implement CSV export — taskId, taskNumber, decision label, status, stage, timestamp
+- [x] Task 4.3: Ensure session history includes decisions from all pages
 - [ ] Task 4.4: Manual test — load >500 tasks, verify pagination works transparently
 - [ ] Task: Conductor - User Manual Verification 'Feature Completion' (Protocol in workflow.md)
 

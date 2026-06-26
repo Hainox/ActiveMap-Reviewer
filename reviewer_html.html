@@ -464,6 +464,7 @@ body{font-family:'Century Gothic','Montserrat',Tahoma,Geneva,sans-serif;backgrou
     <div id="sum-err-list" class="err-list" style="margin-top:10px"></div>
     <div style="display:flex;gap:8px;margin-top:10px">
       <button class="btn btn-primary" onclick="retryFailed()" id="btn-retry" style="display:none">Повторить ошибки</button>
+      <button class="btn" onclick="exportCSV()" style="margin-top:10px">⬇ Экспорт CSV</button>
       <button class="btn" style="background:#f1f5f9;color:#475569;border:1.5px solid #e2e8f0" onclick="sendRemaining()">Отправить оставшиеся</button>
     </div>
   </div>
@@ -546,6 +547,7 @@ var AppState = {
   selectedTypeName: '',
   taskDetailCache: {},    // taskId -> {photos:[...], customFields:[...]}
   taskDetailLoading: {},
+  decisionTimes: {},      // taskId -> ISO timestamp
   submitStatus: {},       // taskId -> 'q'|'ok'|'err'
   submitQueue: [],
   submitRunning: false,
@@ -1012,6 +1014,43 @@ function delBtn(i){
 // ═══════════════════════════════════════════════════════════
 //  START REVIEW
 // ═══════════════════════════════════════════════════════════
+function fetchTasksPage(baseUrl,accumulated,callback){
+  var url=baseUrl+'&offset='+accumulated.length;
+  fetch(url)
+  .then(function(r){return r.json()})
+  .then(function(d){
+    var page=Array.isArray(d)?d:(d.data||d.items||d.tasks||[]);
+    var all=accumulated.concat(page);
+    document.getElementById('task-loader-text').textContent='Загружено: '+all.length+' заданий...';
+    if(page.length>=500){
+      fetchTasksPage(baseUrl,all,callback);
+    } else {
+      callback(null,all);
+    }
+  })
+  .catch(function(e){callback(e,accumulated);});
+}
+
+function exportCSV(){
+  var decided=AppState.tasks.filter(function(t){return AppState.decisions[t.id]!==undefined});
+  if(!decided.length){alert('Нет решений для экспорта');return}
+  var rows=['﻿"ID","Номер","Решение","Статус","Стадия","Время"'];
+  decided.forEach(function(t){
+    var d=AppState.decisions[t.id];
+    var label=d===-1?'Пропуск':(d>=0&&AppState.actionButtons[d]?AppState.actionButtons[d].label:'');
+    var no=t.no||t.number||t.externalId||t.id||'';
+    var status=t.statusName||t.status||'';
+    var stage=t.stageTitle||t.stage||'';
+    var ts=AppState.decisionTimes&&AppState.decisionTimes[t.id]?AppState.decisionTimes[t.id]:'';
+    rows.push([t.id,no,label,status,stage,ts].map(function(v){return'"'+String(v).replace(/"/g,'""')+'"';}).join(','));
+  });
+  var blob=new Blob([rows.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='amr-export.csv';
+  a.click();
+}
+
 function startReview(){
   saveFilters();
   var typeId=document.getElementById('type-select').value;
@@ -1040,17 +1079,19 @@ function startReview(){
   if(dt) url+='&dateTo='+dt;
   AppState._lastTaskUrl=url;
 
-  fetch(url)
-  .then(function(r){return r.json()})
-  .then(function(d){
-    AppState.tasks=Array.isArray(d)?d:(d.data||d.items||d.tasks||[]);
-    var limitWarning=AppState.tasks.length>=500?' ⚠ Достигнут лимит 500 — возможно, не все задания загружены':'';
-    document.getElementById('task-loader-text').textContent='Загружено: '+AppState.tasks.length+' заданий'+limitWarning;
-    setTimeout(function(){ document.getElementById('task-loader').style.display='none'; }, 800);
-    if(AppState.tasks.length>=500){
-      console.warn('[LIMIT] Загружено 500 заданий — API лимит достигнут. Часть заданий может быть не загружена.');
+  fetchTasksPage(url,[],function(err,allTasks){
+    if(err){
+      document.getElementById('task-loader').style.display='none';
+      document.getElementById('task-card-wrap').classList.remove('hidden');
+      document.getElementById('tc-title').textContent='Ошибка загрузки';
+      document.getElementById('tc-desc').textContent=String(err);
+      return;
     }
-    if(!AppState.tasks.length){
+    AppState.tasks=allTasks;
+    AppState.decisionTimes={};
+    document.getElementById('task-loader-text').textContent='Загружено: '+allTasks.length+' заданий';
+    setTimeout(function(){ document.getElementById('task-loader').style.display='none'; }, 800);
+    if(!allTasks.length){
       document.getElementById('task-card-wrap').classList.remove('hidden');
       document.getElementById('tc-title').textContent='Задания не найдены';
       document.getElementById('tc-num').textContent='';
@@ -1065,12 +1106,6 @@ function startReview(){
     }
     document.getElementById('stats-bar').style.display='flex';
     renderTask();
-  })
-  .catch(function(e){
-    document.getElementById('task-loader').style.display='none';
-    document.getElementById('task-card-wrap').classList.remove('hidden');
-    document.getElementById('tc-title').textContent='Ошибка загрузки';
-    document.getElementById('tc-desc').textContent=String(e);
   });
 }
 
@@ -1519,6 +1554,7 @@ function renderDecisionBtns(taskId){
 // ═══════════════════════════════════════════════════════════
 function decide(taskId,btnIdx){
   AppState.decisions[taskId]=btnIdx;
+  AppState.decisionTimes[taskId]=new Date().toISOString();
   // Visual highlight
   document.querySelectorAll('.dec-btn').forEach(function(b){b.classList.remove('active')});
   if(btnIdx===-1){

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://ui.elorm.xyz/schema/elorm.json",
+  "style": "elorm",
+  "uiLibrary": "heroui",
+  "rsc": true,
+  "tsx": true,
+  "tailwind": {
+    "css": "app/globals.css",
+    "baseColor": "stone",
+    "cssVariables": true
+  },
+  "aliases": {
+    "components": "@/components",
+    "utils": "@/lib/utils",
+    "ui": "@/components/ui",
+    "lib": "@/lib",
+    "hooks": "@/hooks"
+  },
+  "iconLibrary": "lucide",
+  "registries": {
+    "@elorm": "https://ui.elorm.xyz/r/{library}/{name}.json"
+  },
+  "framework": "next",
+  "theme": {
+    "accent": "blue",
+    "radius": "round"
+  }
+}

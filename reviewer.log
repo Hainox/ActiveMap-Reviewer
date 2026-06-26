@@ -1,0 +1,19 @@
+2026-06-26 13:51:18,702 INFO ActiveMap Task Reviewer v1.2.0 starting on port 8765
+2026-06-26 13:51:23,584 INFO LOGIN OK token=9e0f072571...
+2026-06-26 13:51:24,013 INFO AUTH OK: queryparam ?token=
+2026-06-26 13:56:18,717 INFO Server stopped.
+2026-06-26 13:57:54,539 INFO ActiveMap Task Reviewer v1.2.0 starting on port 8765
+2026-06-26 13:57:57,414 INFO LOGIN OK token=1ea913d3ca...
+2026-06-26 13:57:57,817 INFO AUTH OK: queryparam ?token=
+2026-06-26 14:07:10,586 INFO Server stopped.
+2026-06-26 14:08:45,365 INFO ActiveMap Task Reviewer v1.2.0 starting on port 8765
+2026-06-26 14:08:48,595 INFO LOGIN OK token=631620bfce...
+2026-06-26 14:08:49,012 INFO AUTH OK: queryparam ?token=
+2026-06-26 14:49:18,375 INFO Server stopped.
+2026-06-26 14:49:25,445 INFO ActiveMap Task Reviewer v1.2.0 starting on port 8765
+2026-06-26 14:49:29,714 INFO LOGIN OK token=cc18666c03...
+2026-06-26 14:49:30,181 INFO AUTH OK: queryparam ?token=
+2026-06-26 15:00:49,646 INFO ActiveMap Task Reviewer v1.2.0 starting on port 8765
+2026-06-26 15:00:52,877 INFO LOGIN OK token=3f5b62e726...
+2026-06-26 15:00:53,316 INFO AUTH OK: queryparam ?token=
+2026-06-26 15:03:41,182 ERROR GET proxy error: [WinError 10053] Программа на вашем хост-компьютере разорвала установленное подключение

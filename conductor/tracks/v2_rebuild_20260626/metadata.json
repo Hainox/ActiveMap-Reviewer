@@ -1,11 +1,18 @@
 {
   "id": "v2_rebuild_20260626",
   "name": "ActiveMap Reviewer v2.0 — Full Rebuild",
-  "status": "not_started",
+  "status": "in_progress",
   "created": "2026-06-26",
   "goal": "Переписать reviewer.py и reviewer_html.html с нуля, устранив технический долг v1.x",
   "type": "refactor+enhancement",
-  "phases": ["Foundation", "Frontend Refactor", "Persistence", "Feature Completion", "QA & Release"],
+  "phases": [
+    "Foundation",
+    "Frontend Refactor",
+    "Persistence",
+    "Feature Completion",
+    "QA & Release"
+  ],
   "tech_stack": "Python 3.11 + vanilla JS + HTML (stdlib only)",
-  "target_version": "2.0.0"
+  "target_version": "2.0.0",
+  "updated_at": "2026-06-26T10:27:40.600899Z"
 }
