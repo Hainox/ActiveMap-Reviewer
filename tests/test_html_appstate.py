@@ -137,3 +137,26 @@ class TestButtonLocking:
             r'function processNext\b.*?\.dec-btn.*?\.disabled\s*=\s*false',
             html, re.DOTALL
         ), "processNext() must re-enable .dec-btn buttons after PATCH response"
+
+
+class TestPatchErrorCard:
+    """PATCH error must show inline retry button in submit pill — Task 2.6."""
+
+    def _extract_update_submit_pill(self, html):
+        """Extract just the updateSubmitPill function body."""
+        m = re.search(r'function updateSubmitPill\b.*?\n\}', html, re.DOTALL)
+        return m.group(0) if m else ''
+
+    def test_submit_pill_shows_retry_button_on_error(self):
+        """updateSubmitPill must render a 'Повторить' element when status is 'err'."""
+        fn = self._extract_update_submit_pill(_html())
+        assert fn, "updateSubmitPill function not found"
+        assert re.search(r"Повторить", fn), \
+            "updateSubmitPill err branch must render a 'Повторить' button"
+
+    def test_retry_button_calls_retry_function(self):
+        """The inline retry in updateSubmitPill must call retryTask."""
+        fn = self._extract_update_submit_pill(_html())
+        assert fn, "updateSubmitPill function not found"
+        assert re.search(r"retryTask", fn), \
+            "updateSubmitPill must include retryTask() call in error state"

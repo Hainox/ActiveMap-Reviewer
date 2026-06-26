@@ -1421,7 +1421,9 @@ function updateSubmitPill(taskId){
   } else if(st==='ok'){
     pill.classList.add('ok'); pill.textContent='✅ Статус изменён'; pill.style.display='inline-flex';
   } else if(st==='err'){
-    pill.classList.add('err'); pill.textContent='❌ Ошибка отправки'; pill.style.display='inline-flex';
+    pill.classList.add('err');
+    pill.innerHTML='❌ Ошибка отправки &nbsp;<button onclick="retryTask(\''+taskId+'\')" style="background:#fff;color:#dc2626;border:none;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Повторить</button>';
+    pill.style.display='inline-flex';
   } else {
     pill.style.display='none';
   }
