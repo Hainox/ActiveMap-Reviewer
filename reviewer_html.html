@@ -560,8 +560,10 @@ var SUBMIT_GAP=400;
 var COLORS=['#16a34a','#ea580c','#1e6ff1','#7c3aed','#dc2626'];
 
 // ═══════════════════════════════════════════════════════════
-//  SCREEN MANAGEMENT
+//  UI
 // ═══════════════════════════════════════════════════════════
+
+// ── Screen Management ────────────────────────────────────
 function show(id){
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});
   document.getElementById(id).classList.add('active');
@@ -638,8 +640,10 @@ function doLogin(){
 function showErr(el,msg){el.textContent=msg;el.style.display='block'}
 
 // ═══════════════════════════════════════════════════════════
-//  SETUP DATA LOADING
+//  API
 // ═══════════════════════════════════════════════════════════
+
+// ── Setup Data Loading ───────────────────────────────────
 function loadSetupData(){
   loadStatuses();
   loadTypes();
@@ -1308,7 +1312,9 @@ function renderCustomFields(cf){
   el.innerHTML=html;
 }
 
-// ── Лайтбокс с зумом ─────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+//  LIGHTBOX
+// ═══════════════════════════════════════════════════════════
 var lbZoom=1, lbDx=0, lbDy=0;
 var lbDragging=false, lbDragStart={x:0,y:0,dx:0,dy:0};
 var LB_ZOOM_MIN=1, LB_ZOOM_MAX=8;
@@ -1460,7 +1466,7 @@ function renderDecisionBtns(taskId){
 }
 
 // ═══════════════════════════════════════════════════════════
-//  DECISIONS & QUEUE
+//  SUBMIT
 // ═══════════════════════════════════════════════════════════
 function decide(taskId,btnIdx){
   decisions[taskId]=btnIdx;

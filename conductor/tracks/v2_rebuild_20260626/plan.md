@@ -4,18 +4,18 @@
 
 ---
 
-## Phase 1: Foundation
+## Phase 1: Foundation [checkpoint: a0dee51]
 
 > Goal: Python server — structured logging, proper error handling, auth timeout UX, PATCH error passthrough.
 
 - [x] Task 1.1: Write pytest tests for auth detection logic (6 header formats) — RED phase [5687f90]
 - [x] Task 1.2: Replace `print()` with `logging` module; write to `reviewer.log` via `FileHandler` — GREEN phase [5fc01af]
-- [x] Task 1.3: Replace all bare `except:` with `except Exception as e:` + `logging.error()`
-- [x] Task 1.4: Add auth timeout UX — after 12s wait, send error response to browser
-- [x] Task 1.5: Fix `POST /patch/{taskId}` — pass through ActiveMap HTTP error code on failure
-- [x] Task 1.6: Gate `/debug` and `/debug-task` behind `os.environ.get('DEBUG') == '1'`
-- [ ] Task 1.7: Run coverage — target >80% for modified Python code
-- [ ] Task: Conductor - User Manual Verification 'Foundation' (Protocol in workflow.md)
+- [x] Task 1.3: Replace all bare `except:` with `except Exception as e:` + `logging.error()` [a0dee51]
+- [x] Task 1.4: Add auth timeout UX — after 12s wait, send error response to browser [a0dee51]
+- [x] Task 1.5: Fix `POST /patch/{taskId}` — pass through ActiveMap HTTP error code on failure [a0dee51]
+- [x] Task 1.6: Gate `/debug` and `/debug-task` behind `os.environ.get('DEBUG') == '1'` [a0dee51]
+- [x] Task 1.7: Run coverage — target >80% for modified Python code
+- [x] Task: Conductor - User Manual Verification 'Foundation' (Protocol in workflow.md)
 
 ---
 
@@ -23,7 +23,7 @@
 
 > Goal: Restructure reviewer_html.html — AppState object, fix silent errors, button locking.
 
-- [ ] Task 2.1: Add section comments to HTML (`<!-- STATE -->`, `<!-- API -->`, `<!-- UI -->`, `<!-- LIGHTBOX -->`, `<!-- SUBMIT -->`)
+- [x] Task 2.1: Add section comments to HTML (`<!-- STATE -->`, `<!-- API -->`, `<!-- UI -->`, `<!-- LIGHTBOX -->`, `<!-- SUBMIT -->`)
 - [ ] Task 2.2: Consolidate ~20 global variables into `AppState` object; update all references
 - [ ] Task 2.3: Extract `LightboxState` object (photos, curIdx, zoom, dx, dy)
 - [ ] Task 2.4: Replace all `.catch(function(){})` with handlers that log + show user error
