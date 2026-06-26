@@ -115,6 +115,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     self.send_header("Content-Type", resp.headers.get("Content-Type","application/octet-stream"))
                     self.send_header("Content-Length", resp.headers.get("Content-Length","0"))
                     self._cors(); self.end_headers()
+            except TimeoutError as e:
+                logger.warning("HEAD auth timeout: %s", e)
+                self._send(503, json.dumps({"error": str(e)}).encode())
             except urllib.error.HTTPError as e:
                 self.send_response(e.code); self._cors(); self.end_headers()
             except Exception as e:
@@ -128,8 +131,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if p in ("/", "/index.html"): self._serve_html()
         elif p.startswith("/proxy/"): self._proxy_get(f"{BASE_URL}/rest/{p[7:]}")
         elif p == "/version": self._send(200, json.dumps({"version": VERSION}).encode())
-        elif p == "/debug": self._debug_info()
-        elif p.startswith("/debug-task/"): self._debug_task(p[12:].split("?")[0])
+        elif p == "/debug":
+            if os.environ.get("DEBUG") == "1": self._debug_info()
+            else: self.send_response(404); self.end_headers()
+        elif p.startswith("/debug-task/"):
+            if os.environ.get("DEBUG") == "1": self._debug_task(p[12:].split("?")[0])
+            else: self.send_response(404); self.end_headers()
         else: self.send_response(404); self.end_headers()
 
     def do_POST(self):
@@ -184,6 +191,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def _authed(self, url, data=None, method=None):
         if Handler.token:
+            if not Handler.auth_ready.wait(timeout=12):
+                raise TimeoutError("Авторизация: превышено время ожидания (12 сек). Перезапустите приложение.")
             req = build_authed_request(url, Handler.token, Handler.auth_config, Handler.auth_ready)
             if req is None:
                 # auth failed — attempt unauthenticated
@@ -202,6 +211,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", resp.headers.get("Content-Type","application/json"))
                 self._cors(); self.end_headers(); self.wfile.write(resp.read())
+        except TimeoutError as e:
+            logger.warning("GET auth timeout: %s", e)
+            self._send(503, json.dumps({"error": str(e)}).encode())
         except urllib.error.HTTPError as e: self._send(e.code, e.read() or b"{}")
         except Exception as e:
             logger.error("GET proxy error: %s", e)
@@ -212,6 +224,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             req = self._authed(url, data=body, method="PATCH")
             req.add_header("Content-Type","application/json")
             with urllib.request.urlopen(req, timeout=15): self._send(200, b'{"ok":true}')
+        except TimeoutError as e:
+            logger.warning("PATCH auth timeout: %s", e)
+            self._send(503, json.dumps({"error": str(e)}).encode())
         except urllib.error.HTTPError as e: self._send(e.code, e.read() or b"{}")
         except Exception as e:
             logger.error("PATCH proxy error: %s", e)
