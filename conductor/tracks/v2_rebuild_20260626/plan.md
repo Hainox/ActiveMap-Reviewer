@@ -8,8 +8,8 @@
 
 > Goal: Python server — structured logging, proper error handling, auth timeout UX, PATCH error passthrough.
 
-- [x] Task 1.1: Write pytest tests for auth detection logic (6 header formats) — RED phase
-- [ ] Task 1.2: Replace `print()` with `logging` module; write to `reviewer.log` via `FileHandler` — GREEN phase
+- [x] Task 1.1: Write pytest tests for auth detection logic (6 header formats) — RED phase [5687f90]
+- [x] Task 1.2: Replace `print()` with `logging` module; write to `reviewer.log` via `FileHandler` — GREEN phase
 - [ ] Task 1.3: Replace all bare `except:` with `except Exception as e:` + `logging.error()`
 - [ ] Task 1.4: Add auth timeout UX — after 12s wait, send error response to browser
 - [ ] Task 1.5: Fix `POST /patch/{taskId}` — pass through ActiveMap HTTP error code on failure
