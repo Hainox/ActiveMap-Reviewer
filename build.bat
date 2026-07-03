@@ -1,39 +1,58 @@
 @echo off
-echo === ActiveMap Reviewer - Sborka exe ===
+chcp 65001 >nul
+echo === ActiveMap Reviewer — Сборка exe ===
 echo.
 
-python --version >nul 2>&1
-if errorlevel 1 (
-    echo [OSHIBKA] Python ne nayden. Ustanovite Python 3.8+
-    pause
-    exit /b 1
+:: ── Найти Python с PyInstaller ───────────────────────────────────────────────
+set PYEXE=
+python -m PyInstaller --version >nul 2>&1
+if not errorlevel 1 set PYEXE=python
+
+if "%PYEXE%"=="" (
+    C:\Python314\python.exe -m PyInstaller --version >nul 2>&1
+    if not errorlevel 1 set PYEXE=C:\Python314\python.exe
 )
 
-echo [INFO] Ustanavlivayu PyInstaller...
-python -m pip install pyinstaller --quiet
+if "%PYEXE%"=="" (
+    echo [ОШИБКА] PyInstaller не найден. Установите:
+    echo   python -m pip install pyinstaller
+    pause & exit /b 1
+)
+echo [INFO] Используется: %PYEXE%
 
-if exist dist\ActiveMapReviewer.exe del /f /q dist\ActiveMapReviewer.exe
-if exist build rmdir /s /q build
+:: ── Остановить работающий процесс ─────────────────────────────────────────────
+taskkill /F /IM ActiveMapReviewer.exe >nul 2>&1
+timeout /t 2 /nobreak >nul
+
+:: ── Очистить старые файлы ─────────────────────────────────────────────────────
+if exist dist\_tmp     rmdir /s /q dist\_tmp
+if exist build         rmdir /s /q build
 if exist ActiveMapReviewer.spec del /f /q ActiveMapReviewer.spec
 
-echo [INFO] Sobirayu exe...
+:: ── Сборка во временную папку ─────────────────────────────────────────────────
+echo [INFO] Собираю exe...
 echo.
-
-python -m PyInstaller --onefile --noconsole --name ActiveMapReviewer --add-data "reviewer_html.html;." reviewer.py
+%PYEXE% -m PyInstaller --onefile --noconsole --name ActiveMapReviewer --add-data "reviewer_html.html;." --distpath dist\_tmp reviewer.py
 
 if errorlevel 1 (
     echo.
-    echo [OSHIBKA] Sborka ne udalas. Smotrite vyvod vyshe.
-    pause
-    exit /b 1
+    echo [ОШИБКА] Сборка не удалась. Смотрите вывод выше.
+    pause & exit /b 1
 )
 
-if exist build rmdir /s /q build
+:: ── Переместить результат в dist\ ─────────────────────────────────────────────
+move /Y dist\_tmp\ActiveMapReviewer.exe dist\ActiveMapReviewer.exe >nul
+rmdir /s /q dist\_tmp
+
+:: ── Очистить мусор сборки ─────────────────────────────────────────────────────
+if exist build         rmdir /s /q build
 if exist ActiveMapReviewer.spec del /f /q ActiveMapReviewer.spec
 
 echo.
-echo === Gotovo! ===
-echo Fayl: dist\ActiveMapReviewer.exe
-echo Zapustite dist\ActiveMapReviewer.exe - brauzer otkroetsya sam.
+echo === Готово! ===
+echo Файл: dist\ActiveMapReviewer.exe
+for %%F in (dist\ActiveMapReviewer.exe) do echo Размер: %%~zF байт
+echo.
+echo Запустите dist\ActiveMapReviewer.exe — браузер откроется автоматически.
 echo.
 pause
