@@ -4,7 +4,7 @@
 import json, http.server, urllib.request, urllib.error, webbrowser, threading, os, datetime, sys
 import logging
 
-VERSION = "1.2.0"
+VERSION = "2.0.0"
 BASE_URL = "https://sao.geofsm.ru"
 PORT = 8765
 
@@ -12,7 +12,7 @@ PORT = 8765
 # Вставьте сюда Personal Access Token с правом Issues:Write
 # Инструкция: github.com/settings/tokens → Fine-grained → Issues: Read+Write
 # Если оставить пустым — репорты сохраняются только локально в bug_reports.jsonl
-GITHUB_TOKEN = ""  # вставьте токен вручную перед запуском, не храните в репозитории
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")  # задайте переменную окружения перед запуском
 GITHUB_REPO  = "Hainox/ActiveMap-Reviewer"   # ваш репозиторий
 # ─────────────────────────────────────────────────────────────────────────────
 

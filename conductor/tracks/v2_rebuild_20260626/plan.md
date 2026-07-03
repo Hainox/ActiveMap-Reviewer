@@ -48,15 +48,15 @@
 
 ---
 
-## Phase 4: Feature Completion
+## Phase 4: Feature Completion [checkpoint: 7c127b6]
 
 > Goal: Auto-pagination for tasks >500, CSV export, full session history.
 
 - [x] Task 4.1: Replace "500 tasks limit" warning with automatic pagination
 - [x] Task 4.2: Implement CSV export — taskId, taskNumber, decision label, status, stage, timestamp
 - [x] Task 4.3: Ensure session history includes decisions from all pages
-- [ ] Task 4.4: Manual test — load >500 tasks, verify pagination works transparently
-- [ ] Task: Conductor - User Manual Verification 'Feature Completion' (Protocol in workflow.md)
+- [x] Task 4.4: Manual test — load >500 tasks, verify pagination works transparently
+- [x] Task: Conductor - User Manual Verification 'Feature Completion' (Protocol in workflow.md)
 
 ---
 
@@ -64,7 +64,7 @@
 
 > Goal: Full manual test, .exe build, GitHub Release v2.0.0.
 
-- [ ] Task 5.1: Update `VERSION = "2.0.0"` in reviewer.py
+- [x] Task 5.1: Update `VERSION = "2.0.0"` in reviewer.py
 - [ ] Task 5.2: Run full manual test checklist from `conductor/docs/testing-patterns.md`
 - [ ] Task 5.3: Build .exe — `pyinstaller --onefile --noconsole --add-data "reviewer_html.html;." reviewer.py`
 - [ ] Task 5.4: Test .exe on clean Windows machine without Python installed
