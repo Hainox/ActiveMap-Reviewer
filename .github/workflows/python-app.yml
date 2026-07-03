@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  syntax:
     name: Синтаксис Python + HTML
     runs-on: ubuntu-latest
 
@@ -108,3 +108,75 @@ jobs:
           size_kb = len(html.encode()) // 1024
           print(f"OK: HTML валиден ({size_kb} КБ, все ID и функции на месте)")
           EOF
+
+  pytest:
+    name: Тесты pytest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+
+      - name: Установить Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Установить зависимости
+        run: python -m pip install pytest
+
+      - name: Запустить тесты
+        run: python -m pytest tests/ -v
+
+  windows:
+    name: Windows — синтаксис + тесты
+    runs-on: windows-latest
+
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+
+      - name: Установить Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Установить зависимости
+        run: python -m pip install pytest
+
+      - name: Проверить синтаксис Python
+        run: |
+          echo "=== Проверка reviewer.py ==="
+          python -m py_compile reviewer.py
+          echo "OK: нет синтаксических ошибок"
+
+      - name: Проверить VERSION, PORT, BASE_URL
+        run: |
+          python - <<'EOF'
+          import ast, sys
+          with open("reviewer.py", encoding="utf-8") as f:
+              source = f.read()
+          tree = ast.parse(source)
+          top_assigns = {
+              node.targets[0].id
+              for node in ast.walk(tree)
+              if isinstance(node, ast.Assign)
+              and isinstance(node.targets[0], ast.Name)
+          }
+          required = {"VERSION", "PORT", "BASE_URL"}
+          missing = required - top_assigns
+          if missing:
+              print(f"ОШИБКА: не найдены переменные: {missing}", file=sys.stderr)
+              sys.exit(1)
+          print(f"OK: VERSION, PORT, BASE_URL определены")
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Assign):
+                  if getattr(node.targets[0], "id", "") == "PORT":
+                      if not isinstance(node.value, ast.Constant):
+                          print("ОШИБКА: PORT должен быть числом", file=sys.stderr)
+                          sys.exit(1)
+          print("OK: PORT корректен")
+          EOF
+
+      - name: Запустить тесты
+        run: python -m pytest tests/ -v

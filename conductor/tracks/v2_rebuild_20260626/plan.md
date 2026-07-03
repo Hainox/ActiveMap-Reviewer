@@ -64,8 +64,8 @@
 
 > Goal: Full manual test, .exe build, GitHub Release v2.0.0.
 
-- [x] Task 5.1: Update `VERSION = "2.0.0"` in reviewer.py
-- [ ] Task 5.2: Run full manual test checklist from `conductor/docs/testing-patterns.md`
+- [x] Task 5.1: Update `VERSION = "2.0.0"` in reviewer.py [1ea6efd]
+- [~] Task 5.2: Run full manual test checklist from `conductor/docs/testing-patterns.md`
 - [ ] Task 5.3: Build .exe — `pyinstaller --onefile --noconsole --add-data "reviewer_html.html;." reviewer.py`
 - [ ] Task 5.4: Test .exe on clean Windows machine without Python installed
 - [ ] Task 5.5: Update CHANGELOG.md with v2.0.0 release notes
