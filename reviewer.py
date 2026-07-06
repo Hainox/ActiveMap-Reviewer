@@ -4,7 +4,7 @@
 import json, http.server, urllib.request, urllib.error, webbrowser, threading, os, datetime, sys
 import logging
 
-VERSION = "2.0.0"
+VERSION = "2.0.1"
 BASE_URL = "https://sao.geofsm.ru"
 PORT = 8765
 
