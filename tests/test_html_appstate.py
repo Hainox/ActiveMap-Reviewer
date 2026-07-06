@@ -112,9 +112,13 @@ class TestCatchHandlers:
     def test_submit_catch_logs_error(self):
         """Submit queue catch must include error parameter and log it."""
         html = _html()
-        # The submit catch (processNext) must capture the error variable
-        assert re.search(r'submitStatus\[taskId\]=.err.*\bconsole\.(error|warn)', html, re.DOTALL) or \
-               re.search(r'\.catch\s*\(\s*function\s*\(\s*e\s*\).*submitStatus\[taskId\]=', html, re.DOTALL), \
+        m = re.search(r"function processNext\s*\(.*?\n\}", html, re.DOTALL)
+        assert m, "processNext() not found"
+        body = m.group(0)
+        catch_match = re.search(r"\.catch\s*\(\s*function\s*\(\s*(\w+)\s*\)\s*\{(.*?)\n\s*\}\s*\)", body, re.DOTALL)
+        assert catch_match and catch_match.group(1), \
+            "processNext()'s .catch must capture the error into a named parameter"
+        assert "console.error" in catch_match.group(2) or "console.warn" in catch_match.group(2), \
             "Submit catch must capture error and log it"
 
 

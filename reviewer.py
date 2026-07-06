@@ -8,6 +8,13 @@ VERSION = "2.0.0"
 BASE_URL = "https://sao.geofsm.ru"
 PORT = 8765
 
+
+class AuthTimeoutError(TimeoutError):
+    """Raised only when the 12s auth-format-detection wait times out — kept distinct from a
+    plain socket timeout (also a TimeoutError since Python 3.10) so upstream ActiveMap slowness
+    isn't misdiagnosed in logs/responses as an auth-detection problem."""
+    pass
+
 # ── GitHub Issues для баг-репортов ────────────────────────────────────────────
 # Вставьте сюда Personal Access Token с правом Issues:Write
 # Инструкция: github.com/settings/tokens → Fine-grained → Issues: Read+Write
@@ -67,16 +74,16 @@ def detect_auth_format(token, base_url, request_fn):
         try:
             request_fn(probe_url, {header_name: header_value})
             return {"header_name": header_name, "header_value": header_value, "use_queryparam": False}
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("auth probe %s failed: %s", header_name, e)
 
     sep = "&" if "?" in probe_url else "?"
     qp_url = probe_url + sep + f"token={token}"
     try:
         request_fn(qp_url, {})
         return {"use_queryparam": True}
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("auth probe queryparam failed: %s", e)
 
     return None
 
@@ -101,6 +108,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
     token = None
     auth_config = None          # set by _detect_auth after login
     auth_ready = threading.Event()
+    auth_epoch = 0               # bumped on every /login; a _detect_auth thread from a
+                                  # superseded earlier login discards its (stale) result instead
+                                  # of overwriting the newer login's auth_config
 
     def do_OPTIONS(self):
         self._cors(200); self.end_headers()
@@ -115,9 +125,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     self.send_header("Content-Type", resp.headers.get("Content-Type","application/octet-stream"))
                     self.send_header("Content-Length", resp.headers.get("Content-Length","0"))
                     self._cors(); self.end_headers()
-            except TimeoutError as e:
+            except AuthTimeoutError as e:
                 logger.warning("HEAD auth timeout: %s", e)
                 self._send(503, json.dumps({"error": str(e)}).encode())
+            except TimeoutError as e:
+                logger.warning("HEAD upstream timeout: %s", e)
+                self._send(504, json.dumps({"error": "Сервер ActiveMap не ответил вовремя"}).encode())
             except urllib.error.HTTPError as e:
                 self.send_response(e.code); self._cors(); self.end_headers()
             except Exception as e:
@@ -159,16 +172,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 Handler.token = parsed.get("token","")
                 Handler.auth_config = None
                 Handler.auth_ready.clear()
+                Handler.auth_epoch += 1
                 logger.info("LOGIN OK token=%s...", Handler.token[:10])
                 self._send(200, data)
-                threading.Thread(target=self._detect_auth, daemon=True).start()
+                threading.Thread(target=self._detect_auth, args=(Handler.auth_epoch,), daemon=True).start()
         except urllib.error.HTTPError as e:
             self._send(e.code, e.read() or b'{"error":"auth failed"}')
         except Exception as e:
             logger.error("Login error: %s", e)
             self._send(500, json.dumps({"error":str(e)}).encode())
 
-    def _detect_auth(self):
+    def _detect_auth(self, epoch):
         t = Handler.token
 
         def request_fn(url, headers):
@@ -179,6 +193,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 pass
 
         config = detect_auth_format(t, BASE_URL, request_fn)
+        if epoch != Handler.auth_epoch:
+            # Пока шла детекция, произошёл ещё один /login — этот результат устарел
+            logger.info("AUTH detection for epoch %d discarded (current epoch %d)", epoch, Handler.auth_epoch)
+            return
         Handler.auth_config = config
         if config:
             if config.get("use_queryparam"):
@@ -192,7 +210,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def _authed(self, url, data=None, method=None):
         if Handler.token:
             if not Handler.auth_ready.wait(timeout=12):
-                raise TimeoutError("Авторизация: превышено время ожидания (12 сек). Перезапустите приложение.")
+                raise AuthTimeoutError("Авторизация: превышено время ожидания (12 сек). Перезапустите приложение.")
             req = build_authed_request(url, Handler.token, Handler.auth_config, Handler.auth_ready)
             if req is None:
                 # auth failed — attempt unauthenticated
@@ -208,12 +226,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def _proxy_get(self, url):
         try:
             with urllib.request.urlopen(self._authed(url), timeout=20) as resp:
-                self.send_response(200)
-                self.send_header("Content-Type", resp.headers.get("Content-Type","application/json"))
-                self._cors(); self.end_headers(); self.wfile.write(resp.read())
-        except TimeoutError as e:
+                content_type = resp.headers.get("Content-Type","application/json")
+                body = resp.read()  # читаем ДО отправки заголовков — иначе обрыв чтения тут привёл бы
+                                     # ко второму send_response() поверх уже отправленного 200
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self._cors(); self.end_headers(); self.wfile.write(body)
+        except AuthTimeoutError as e:
             logger.warning("GET auth timeout: %s", e)
             self._send(503, json.dumps({"error": str(e)}).encode())
+        except TimeoutError as e:
+            logger.warning("GET upstream timeout: %s", e)
+            self._send(504, json.dumps({"error": "Сервер ActiveMap не ответил вовремя"}).encode())
         except urllib.error.HTTPError as e: self._send(e.code, e.read() or b"{}")
         except Exception as e:
             logger.error("GET proxy error: %s", e)
@@ -224,9 +248,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             req = self._authed(url, data=body, method="PATCH")
             req.add_header("Content-Type","application/json")
             with urllib.request.urlopen(req, timeout=15): self._send(200, b'{"ok":true}')
-        except TimeoutError as e:
+        except AuthTimeoutError as e:
             logger.warning("PATCH auth timeout: %s", e)
             self._send(503, json.dumps({"error": str(e)}).encode())
+        except TimeoutError as e:
+            logger.warning("PATCH upstream timeout: %s", e)
+            self._send(504, json.dumps({"error": "Сервер ActiveMap не ответил вовремя"}).encode())
         except urllib.error.HTTPError as e: self._send(e.code, e.read() or b"{}")
         except Exception as e:
             logger.error("PATCH proxy error: %s", e)
@@ -314,8 +341,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._send(500, json.dumps({"error": str(e)}).encode())
 
     def _debug_info(self):
+        auth_config = Handler.auth_config
+        if auth_config and auth_config.get("header_value"):
+            auth_config = dict(auth_config, header_value="<redacted>")
         info = {"token":bool(Handler.token),"auth_ready":Handler.auth_ready.is_set(),
-                "auth_config": Handler.auth_config}
+                "auth_config": auth_config}
         for ep in ["statuses?apiVersion=2.0","types?apiVersion=2.0"]:
             try:
                 with urllib.request.urlopen(self._authed(f"{BASE_URL}/rest/{ep}"), timeout=10) as r:
@@ -342,10 +372,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._cors(); self.end_headers(); self.wfile.write(data)
 
     def _cors(self, code=None):
+        # Фронтенд и бэкенд — один и тот же origin (localhost:PORT), CORS-заголовки приложению
+        # не нужны. Раньше здесь стоял Access-Control-Allow-Origin: *, который открывал
+        # авторизованные /proxy и /patch любому стороннему сайту, открытому в том же браузере.
         if code: self.send_response(code)
-        self.send_header("Access-Control-Allow-Origin","*")
-        self.send_header("Access-Control-Allow-Methods","GET,POST,PATCH,OPTIONS")
-        self.send_header("Access-Control-Allow-Headers","Content-Type,Authorization")
 
     def log_message(self, fmt, *args): pass
 

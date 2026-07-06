@@ -26,6 +26,7 @@ timeout /t 2 /nobreak >nul
 
 :: ── Очистить старые файлы ─────────────────────────────────────────────────────
 if exist dist\_tmp     rmdir /s /q dist\_tmp
+if exist dist\ActiveMapReviewer.exe del /f /q dist\ActiveMapReviewer.exe
 if exist build         rmdir /s /q build
 if exist ActiveMapReviewer.spec del /f /q ActiveMapReviewer.spec
 
@@ -42,6 +43,12 @@ if errorlevel 1 (
 
 :: ── Переместить результат в dist\ ─────────────────────────────────────────────
 move /Y dist\_tmp\ActiveMapReviewer.exe dist\ActiveMapReviewer.exe >nul
+if errorlevel 1 (
+    echo.
+    echo [ОШИБКА] Не удалось переместить exe — возможно, файл занят другим процессом.
+    echo Собранный файл остался в dist\_tmp\ActiveMapReviewer.exe
+    pause & exit /b 1
+)
 rmdir /s /q dist\_tmp
 
 :: ── Очистить мусор сборки ─────────────────────────────────────────────────────

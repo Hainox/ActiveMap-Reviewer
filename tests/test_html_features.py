@@ -80,5 +80,5 @@ class TestCsvExport:
 
     def test_export_button_exists_in_summary(self):
         html = _html()
-        assert re.search(r"exportCSV\(\)", html), \
-            "exportCSV() must be called from a button in the summary screen"
+        assert re.search(r'onclick="exportCSV\(\)"', html), \
+            "exportCSV() must be called from a button (onclick) in the summary screen"

@@ -190,14 +190,17 @@ body{font-family:'Century Gothic','Montserrat',Tahoma,Geneva,sans-serif;backgrou
 .photo-grid{display:flex;gap:8px;flex-wrap:wrap}
 .photo-thumb{width:104px;height:82px;object-fit:cover;border-radius:9px;cursor:pointer;border:2px solid #e3e9f2;transition:all .15s;background:#f1f5f9}
 .photo-thumb:hover{border-color:#c8a96a;transform:scale(1.04)}
+.photo-thumb.active{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.35)}
 .photos-loading{color:#94a3b8;font-size:12px;padding:4px 0}
 .photos-empty{color:#94a3b8;font-size:12px;padding:4px 0;font-style:italic}
 
-/* LIGHTBOX */
-.lb{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:999;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;overflow:hidden}
+/* LIGHTBOX — докед-панель на левой половине экрана; правая половина (карточка задания,
+   миниатюры, кнопки решений) остаётся видимой и кликабельной, пока фото открыто */
+.lb{position:fixed;top:60px;left:0;width:50vw;height:calc(100vh - 60px);background:rgba(10,14,26,.97);z-index:150;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;overflow:hidden;border-right:1px solid rgba(255,255,255,.08);box-shadow:6px 0 30px rgba(0,0,0,.35)}
 .lb.open{display:flex}
-.lb-img-wrap{position:relative;display:flex;align-items:center;justify-content:center;width:94vw;height:82vh;overflow:hidden;border-radius:8px}
-.lb-img-wrap img{max-width:94vw;max-height:82vh;object-fit:contain;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,.6);transform-origin:center center;cursor:zoom-in;user-select:none;-webkit-user-drag:none;will-change:transform}
+body.lb-open #scr-viewer .content{margin-left:50vw;width:50vw}
+.lb-img-wrap{position:relative;display:flex;align-items:center;justify-content:center;width:92%;height:80vh;overflow:hidden;border-radius:8px}
+.lb-img-wrap img{max-width:100%;max-height:80vh;object-fit:contain;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,.6);transform-origin:center center;cursor:zoom-in;user-select:none;-webkit-user-drag:none;will-change:transform}
 .lb-img-wrap img.lb-zoomed{cursor:move}
 .lb-close{position:absolute;top:14px;right:18px;color:#fff;font-size:28px;cursor:pointer;background:none;border:none;line-height:1;z-index:10}
 .lb-bottom{display:flex;gap:8px;align-items:center;margin-top:4px}
@@ -208,6 +211,10 @@ body{font-family:'Century Gothic','Montserrat',Tahoma,Geneva,sans-serif;backgrou
 .lb-zoom-level{color:#cbd5e1;font-size:12px;min-width:38px;text-align:center;font-variant-numeric:tabular-nums}
 .lb-sep{width:1px;height:20px;background:rgba(255,255,255,.15);margin:0 4px}
 .lb-zoom-hint{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.35);font-size:11px;pointer-events:none;white-space:nowrap}
+@media (max-width:1000px){
+  .lb{width:100vw;left:0;box-shadow:none;border-right:none}
+  body.lb-open #scr-viewer .content{margin-left:0;width:100%}
+}
 
 /* CUSTOM FIELDS */
 .custom-fields{margin-bottom:12px}
@@ -580,16 +587,18 @@ document.addEventListener('keydown',function(e){
   // Логин
   if(e.key==='Enter'&&document.getElementById('scr-login').classList.contains('active')){doLogin();return}
 
-  // Лайтбокс
+  // Лайтбокс — теперь докед-панель слева, а не полноэкранная модалка, поэтому
+  // зум/навигация фото и Escape перехватываются всегда, но цифры 1-9 и S/Ы должны
+  // проваливаться в блок «Просмотр заданий» ниже — можно принять решение, не закрывая фото
   var lb=document.getElementById('lb');
-  if(lb.classList.contains('open')){
-    if(e.key==='Escape'||e.key==='Enter') closeLb();
-    else if(e.key==='ArrowLeft') lbNav(-1);
-    else if(e.key==='ArrowRight') lbNav(1);
-    else if(e.key==='+'||e.key==='='||e.key===']') lbZoomStep(1);
-    else if(e.key==='-'||e.key==='['||e.key==='_') lbZoomStep(-1);
-    else if(e.key==='0') lbResetZoom();
-    return;
+  var lbOpenNow=lb.classList.contains('open');
+  if(lbOpenNow){
+    if(e.key==='Escape'||e.key==='Enter'){closeLb();return}
+    if(e.key==='ArrowLeft'){lbNav(-1);return}
+    if(e.key==='ArrowRight'){lbNav(1);return}
+    if(e.key==='+'||e.key==='='||e.key===']'){lbZoomStep(1);return}
+    if(e.key==='-'||e.key==='['||e.key==='_'){lbZoomStep(-1);return}
+    if(e.key==='0'){lbResetZoom();return}
   }
 
   // Просмотр заданий
@@ -607,11 +616,10 @@ document.addEventListener('keydown',function(e){
   if(e.key==='s'||e.key==='S'||e.key==='ы'||e.key==='Ы'){
     e.preventDefault(); decide(t.id,-1); navigate(1); return;
   }
+  if(lbOpenNow) return; // стрелки уже обработаны выше (навигация по фото, не по заданиям)
   // Стрелки — навигация вручную
   if(e.key==='ArrowRight') navigate(1);
   if(e.key==='ArrowLeft')  navigate(-1);
-  // Escape — закрыть лайтбокс если открыт
-  if(e.key==='Escape') closeLb();
 });
 
 function doLogin(){
@@ -657,7 +665,7 @@ function saveFilters(){
       orgName:document.getElementById('org-inp').value
     };
     localStorage.setItem('amr_filters',JSON.stringify(filters));
-  }catch(e){}
+  }catch(e){ console.error('[filters] save failed', e); }
 }
 
 function restoreFilters(){
@@ -675,7 +683,7 @@ function restoreFilters(){
       var clr=document.getElementById('org-clr');
       if(clr) clr.style.display='flex';
     }
-  }catch(e){}
+  }catch(e){ console.error('[filters] restore failed', e); }
 }
 
 function loadSetupData(){
@@ -701,7 +709,10 @@ function loadStatuses(){
       if(n.toLowerCase().indexOf('выполн')>=0) o.selected=true;
       sel.appendChild(o);
     });
-    if(AppState._savedStatusId) sel.value=AppState._savedStatusId;
+    if(AppState._savedStatusId){
+      var hasSaved=items.some(function(it){return String(it.id)===String(AppState._savedStatusId)});
+      if(hasSaved) sel.value=AppState._savedStatusId; // иначе оставляем дефолт "выполнено", выбранный выше
+    }
     if(!sel.value&&items.length) sel.selectedIndex=0;
   })
   .catch(function(e){console.error('statuses',e)});
@@ -946,12 +957,12 @@ document.addEventListener('click',function(e){
 
 // ─── BUTTON CONFIG ───
 function saveBtnCfg(){
-  try{localStorage.setItem('amr_buttons',JSON.stringify(AppState.actionButtons));}catch(e){}
+  try{localStorage.setItem('amr_buttons',JSON.stringify(AppState.actionButtons));}catch(e){ console.error('[buttons] save failed', e); }
 }
 
 function initBtnCfg(){
   var saved=null;
-  try{saved=JSON.parse(localStorage.getItem('amr_buttons')||'null');}catch(e){}
+  try{saved=JSON.parse(localStorage.getItem('amr_buttons')||'null');}catch(e){ console.error('[buttons] restore failed', e); }
   AppState.actionButtons=saved&&saved.length?saved:[
     {label:'Утверждено',statusId:'',stageId:'2',color:'#16a34a'},
     {label:'Доработка',statusId:'',stageId:'1',color:'#ea580c'}
@@ -969,13 +980,18 @@ function loadStatusesForBtns(){
 function renderBtnCfg(){
   var list=document.getElementById('btn-cfg-list');
   list.innerHTML='';
+  var guessedAny=false;
   AppState.actionButtons.forEach(function(b,i){
     var row=document.createElement('div');
     row.className='btn-cfg-row';
     var statusOpts='<option value="">-- Статус --</option>';
     AppState.allStatuses.forEach(function(s){
       var n=s.name||s.title||String(s.id);
-      var sel=(String(s.id)===String(b.statusId))||(!b.statusId&&n.toLowerCase().indexOf(b.label.toLowerCase().split(' ')[0])>=0);
+      var heuristicMatch=!b.statusId&&n.toLowerCase().indexOf(b.label.toLowerCase().split(' ')[0])>=0;
+      // Совпадение по названию — не только визуальная подсказка: реально сохраняем его в модель,
+      // иначе кнопка выглядит настроенной, но statusId остаётся пустым и её молча отбросит startReview()
+      if(heuristicMatch){ b.statusId=String(s.id); guessedAny=true; }
+      var sel=(String(s.id)===String(b.statusId))||heuristicMatch;
       statusOpts+='<option value="'+s.id+'"'+(sel?' selected':'')+'>'+esc(n)+'</option>';
     });
     var stageOpts=
@@ -991,6 +1007,7 @@ function renderBtnCfg(){
   });
   var addBtn=document.getElementById('add-btn-cfg');
   if(addBtn) addBtn.style.display=AppState.actionButtons.length>=5?'none':'';
+  if(guessedAny) saveBtnCfg();
 }
 
 function updateBtn(i,key,val){
@@ -1017,7 +1034,7 @@ function delBtn(i){
 function fetchTasksPage(baseUrl,accumulated,callback){
   var url=baseUrl+'&offset='+accumulated.length;
   fetch(url)
-  .then(function(r){return r.json()})
+  .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
   .then(function(d){
     var page=Array.isArray(d)?d:(d.data||d.items||d.tasks||[]);
     var all=accumulated.concat(page);
@@ -1034,15 +1051,20 @@ function fetchTasksPage(baseUrl,accumulated,callback){
 function exportCSV(){
   var decided=AppState.tasks.filter(function(t){return AppState.decisions[t.id]!==undefined});
   if(!decided.length){alert('Нет решений для экспорта');return}
-  var rows=['﻿"ID","Номер","Решение","Статус","Стадия","Время"'];
+  var rows=['﻿"ID","Номер","Решение","Статус","Стадия","Статус отправки","Время"'];
+  var subLabels={ok:'Отправлено',err:'Ошибка отправки',q:'В очереди'};
   decided.forEach(function(t){
     var d=AppState.decisions[t.id];
     var label=d===-1?'Пропуск':(d>=0&&AppState.actionButtons[d]?AppState.actionButtons[d].label:'');
     var no=t.no||t.number||t.externalId||t.id||'';
+    // Статус/Стадия — исходные значения задания на момент загрузки списка (до решения);
+    // само решение уже отражено в колонке "Решение", а "Статус отправки" показывает,
+    // применилось ли оно в ActiveMap на самом деле
     var status=t.statusName||t.status||'';
     var stage=t.stageTitle||t.stage||'';
+    var subStatus=subLabels[AppState.submitStatus&&AppState.submitStatus[t.id]]||(d===-1?'—':'Не отправлялось');
     var ts=AppState.decisionTimes&&AppState.decisionTimes[t.id]?AppState.decisionTimes[t.id]:'';
-    rows.push([t.id,no,label,status,stage,ts].map(function(v){return'"'+String(v).replace(/"/g,'""')+'"';}).join(','));
+    rows.push([t.id,no,label,status,stage,subStatus,ts].map(function(v){return'"'+String(v).replace(/"/g,'""')+'"';}).join(','));
   });
   var blob=new Blob([rows.join('\r\n')],{type:'text/csv;charset=utf-8'});
   var a=document.createElement('a');
@@ -1115,18 +1137,21 @@ function reloadTasks(){
   if(!confirm('Обновить список заданий?\nРешения в текущей сессии сохранятся в истории, но список начнётся заново.')) return;
   var btn=document.getElementById('btn-reload');
   btn.disabled=true; btn.textContent='⏳ Загрузка...';
-  AppState.decisions={}; AppState.submitStatus={}; AppState.submitQueue=[];
+  // Решения/история/очередь отправки НЕ сбрасываем — диалог выше обещает их сохранить,
+  // а PATCH-очередь адресуется по taskId и не зависит от текущего списка AppState.tasks
   AppState.taskDetailCache={}; AppState.taskDetailLoading={};
   AppState.tasks=[]; AppState.idx=0;
   document.getElementById('task-loader').style.display='flex';
   document.getElementById('task-card-wrap').classList.add('hidden');
-  fetch(AppState._lastTaskUrl)
-  .then(function(r){return r.json()})
-  .then(function(d){
-    AppState.tasks=Array.isArray(d)?d:(d.data||d.items||d.tasks||[]);
-    document.getElementById('task-loader').style.display='none';
+  fetchTasksPage(AppState._lastTaskUrl,[],function(err,allTasks){
     btn.disabled=false; btn.textContent='🔄 Обновить';
-    if(AppState.tasks.length>=500) console.warn('[LIMIT] Лимит 500 достигнут при перезагрузке.');
+    if(err){
+      document.getElementById('task-loader').style.display='none';
+      alert('Ошибка загрузки: '+err);
+      return;
+    }
+    AppState.tasks=allTasks;
+    document.getElementById('task-loader').style.display='none';
     if(!AppState.tasks.length){
       document.getElementById('tc-title').textContent='Заданий не найдено';
       document.getElementById('task-card-wrap').classList.remove('hidden');
@@ -1134,11 +1159,6 @@ function reloadTasks(){
     }
     document.getElementById('stats-bar').style.display='flex';
     renderTask();
-  })
-  .catch(function(e){
-    document.getElementById('task-loader').style.display='none';
-    btn.disabled=false; btn.textContent='🔄 Обновить';
-    alert('Ошибка загрузки: '+e);
   });
 }
 
@@ -1149,6 +1169,7 @@ function renderTask(){
   if(!AppState.tasks.length) return;
   var t=AppState.tasks[AppState.idx];
   if(!t) return;
+  closeLb(); // новое задание — фото предыдущего задания больше не актуальны
   document.getElementById('task-card-wrap').classList.remove('hidden');
 
   // Header
@@ -1482,10 +1503,12 @@ function openLb(photos, i){
   LightboxState.photos=photos; LightboxState.curIdx=i;
   lbResetZoom(false);
   document.getElementById('lb').classList.add('open');
+  document.body.classList.add('lb-open');
   lbShow();
 }
 function closeLb(){
   document.getElementById('lb').classList.remove('open');
+  document.body.classList.remove('lb-open');
   lbResetZoom(false);
 }
 function lbClose(e){if(e.target===document.getElementById('lb'))closeLb();}
@@ -1497,6 +1520,8 @@ function lbNav(dir){
 function lbShow(){
   document.getElementById('lb-img').src=LightboxState.photos[LightboxState.curIdx];
   document.getElementById('lb-counter').textContent=(LightboxState.curIdx+1)+' / '+LightboxState.photos.length;
+  var thumbs=document.querySelectorAll('#tc-photos .photo-thumb');
+  thumbs.forEach(function(t,i){ t.classList.toggle('active', i===LightboxState.curIdx); });
 }
 
 function updateSubmitPill(taskId){
@@ -1608,7 +1633,8 @@ function processNext(){
     if(!r.ok) throw new Error('HTTP '+r.status);
     AppState.submitStatus[taskId]='ok';
   })
-  .catch(function(){
+  .catch(function(e){
+    console.error('[patch] задание '+taskId+' не отправлено:', e);
     AppState.submitStatus[taskId]='err';
   })
   .then(function(){
@@ -1661,7 +1687,8 @@ function navigate(dir){
   renderTask();
 }
 
-function goSetup(){show('scr-setup')}
+function goSetup(){initBtnCfg();show('scr-setup')} // пересобираем UI кнопок из localStorage — иначе строки
+// в DOM ссылаются на индексы, обрезанные startReview(), и правки молча не сохраняются
 
 function finishReview(){
   // Send any remaining
