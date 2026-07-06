@@ -84,7 +84,9 @@ body{font-family:'Century Gothic','Montserrat',Tahoma,Geneva,sans-serif;backgrou
 .org-opt:hover,.org-opt.hi{background:#f1f5fb}
 .org-opt.all-opt{color:#2563eb;font-weight:700;border-bottom:1px solid #eef1f6}
 .btn-cfg-list{display:flex;flex-direction:column;gap:10px}
-.btn-cfg-row{display:flex;align-items:center;gap:10px;background:#f6f8fc;border:1px solid #e3e9f2;border-radius:10px;padding:9px 11px}
+.btn-cfg-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:#f6f8fc;border:1px solid #e3e9f2;border-radius:10px;padding:9px 11px}
+.btn-cfg-invalid{border-color:#dc2626!important;background:#fef2f2!important}
+.btn-cfg-warn{flex-basis:100%;color:#c0392b;font-size:12px;padding-left:28px}
 .btn-cfg-num{font-size:13px;color:#9aa6ba;font-weight:700;width:18px;flex-shrink:0;text-align:center}
 .btn-cfg-label{flex:1;border:1px solid #d7deea;border-radius:8px;padding:9px 10px;font-size:13px;font-family:inherit;background:#fff;color:#16223f}
 .btn-cfg-label:focus{outline:none;border-color:#c8a96a}
@@ -211,7 +213,11 @@ body.lb-open #scr-viewer .content{margin-left:50vw;width:50vw}
 .lb-zoom-level{color:#cbd5e1;font-size:12px;min-width:38px;text-align:center;font-variant-numeric:tabular-nums}
 .lb-sep{width:1px;height:20px;background:rgba(255,255,255,.15);margin:0 4px}
 .lb-zoom-hint{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.35);font-size:11px;pointer-events:none;white-space:nowrap}
-@media (max-width:1000px){
+@media (max-width:700px){
+  /* Ниже 700px 50/50-разбивка уже нечитаема (каждая половина ~350px) — тут действительно
+     лучше полноэкранный оверлей. На обычных ноутбучных/суженных окнах (700-1000px)
+     раньше уже включался этот оверлей и полностью прятал карточку задания и кнопки решений
+     — то есть ровно то, для чего сплит-скрин и делался. Порог сужен до реально мобильных ширин. */
   .lb{width:100vw;left:0;box-shadow:none;border-right:none}
   body.lb-open #scr-viewer .content{margin-left:0;width:100%}
 }
@@ -353,8 +359,13 @@ body.lb-open #scr-viewer .content{margin-left:50vw;width:50vw}
         <input id="date-to" type="date">
       </div>
     </div>
+  </div>
+
+  <!-- BLOCK 3: Кнопки решений -->
+  <div class="setup-block">
+    <h3><span class="block-num">3</span>Кнопки решений</h3>
     <div class="field">
-      <label>Пресеты фильтров</label>
+      <label>Пресеты кнопок решений</label>
       <div style="display:flex;gap:8px;align-items:center">
         <select id="preset-select" onchange="loadPreset(this.value)" style="flex:1;border:1px solid #d7deea;border-radius:8px;padding:9px 10px;font-size:13px;font-family:inherit">
           <option value="">— выбрать сохранённый пресет —</option>
@@ -366,11 +377,6 @@ body.lb-open #scr-viewer .content{margin-left:50vw;width:50vw}
         <button class="add-btn" onclick="savePreset()" style="flex:0 0 auto;padding:9px 16px">💾 Сохранить</button>
       </div>
     </div>
-  </div>
-
-  <!-- BLOCK 3: Кнопки решений -->
-  <div class="setup-block">
-    <h3><span class="block-num">3</span>Кнопки решений</h3>
     <div class="btn-cfg-list" id="btn-cfg-list"></div>
     <div class="add-btn-row">
       <button class="add-btn" onclick="addBtnCfg()" id="add-btn-cfg">+ Добавить кнопку</button>
@@ -548,7 +554,7 @@ body.lb-open #scr-viewer .content{margin-left:50vw;width:50vw}
 <div class="lb" id="lb" onclick="lbClose(event)">
   <button class="lb-close" onclick="closeLb()">✕</button>
   <div class="lb-img-wrap" id="lb-wrap" onclick="event.stopPropagation()">
-    <img id="lb-img" src="" alt="">
+    <img id="lb-img" src="" alt="" onerror="this.style.opacity='0.3'" onload="this.style.opacity='1'">
     <span class="lb-zoom-hint" id="lb-hint">Скролл — зум · Двойной клик — 2.5× · Тащи для перемещения</span>
   </div>
   <div class="lb-bottom" onclick="event.stopPropagation()">
@@ -691,6 +697,15 @@ document.addEventListener('keydown',function(e){
   var tag=e.target.tagName;
   if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA') return;
 
+  // Модалка подтверждения/баг-репорта поверх экрана — цифры/S/Backspace не должны
+  // "проваливаться" в задание под ней, пока пользователь не ответил на диалог.
+  // Escape для bug-modal уже обрабатывается отдельным слушателем ниже по файлу.
+  var confirmOpen=document.getElementById('confirm-modal').classList.contains('open');
+  if(confirmOpen||document.getElementById('bug-modal').classList.contains('open')){
+    if(e.key==='Escape'&&confirmOpen) hideConfirmModal();
+    return;
+  }
+
   // Логин
   if(e.key==='Enter'&&document.getElementById('scr-login').classList.contains('active')){doLogin();return}
 
@@ -763,6 +778,21 @@ function doLogin(){
           if(saved.actionButtons&&saved.actionButtons.length) AppState.actionButtons=saved.actionButtons;
           AppState._lastTaskUrl=saved._lastTaskUrl||''; AppState.selectedTypeName=saved.selectedTypeName||'';
           AppState.sessionStartTime=saved.sessionStartTime||null;
+          // Решение со статусом 'q' означает, что PATCH был поставлен в очередь, но не
+          // успел завершиться до перезагрузки — очередь (submitQueue) не сохраняется,
+          // поэтому без этого решение осталось бы висеть вечно: sendRemaining() и
+          // retryTask() трогают только 'err', а 'q' считают уже обрабатываемым
+          var requeue=[];
+          Object.keys(AppState.submitStatus).forEach(function(tid){
+            if(AppState.submitStatus[tid]==='q') requeue.push(tid);
+          });
+          if(requeue.length){ AppState.submitQueue=requeue; kickQueue(); }
+          // Backspace должен уметь отменить последнее решение и после восстановления сессии
+          var lastTid=null;
+          Object.keys(AppState.decisionTimes).forEach(function(tid){
+            if(!lastTid||AppState.decisionTimes[tid]>AppState.decisionTimes[lastTid]) lastTid=tid;
+          });
+          AppState.lastDecidedTaskId=lastTid;
           show('scr-viewer');
           document.getElementById('task-loader').style.display='none';
           document.getElementById('task-card-wrap').classList.remove('hidden');
@@ -827,7 +857,7 @@ function loadSetupData(){
   renderPresetSelect();
 }
 
-// ─── ПРЕСЕТЫ ФИЛЬТРОВ (несколько, именованные) ───
+// ─── ПРЕСЕТЫ КНОПОК РЕШЕНИЙ (несколько, именованные) ───
 function getPresets(){
   try{ return JSON.parse(localStorage.getItem('amr_filter_presets')||'[]'); }
   catch(e){ console.error('[presets] load failed', e); return []; }
@@ -844,28 +874,19 @@ function renderPresetSelect(){
   presets.forEach(function(p,i){ html+='<option value="'+i+'">'+esc(p.name)+'</option>'; });
   sel.innerHTML=html;
 }
-function currentFiltersSnapshot(){
-  return {
-    typeId: AppState.selectedTypeId,
-    typeName: AppState.selectedTypeName,
-    statusId: document.getElementById('status-select').value,
-    stageVal: document.getElementById('stage-select').value,
-    dateFrom: document.getElementById('date-from').value,
-    dateTo: document.getElementById('date-to').value,
-    orgId: AppState.selectedOrgId,
-    orgName: document.getElementById('org-inp').value
-  };
+function currentButtonsSnapshot(){
+  return JSON.parse(JSON.stringify(AppState.actionButtons));
 }
 function savePreset(){
   var inp=document.getElementById('preset-name-inp');
   var name=inp.value.trim();
   if(!name){ showToast('Введите название пресета','err'); return; }
   var presets=getPresets();
-  var snap=currentFiltersSnapshot();
+  var snap=currentButtonsSnapshot();
   var existingIdx=-1;
   presets.forEach(function(p,i){ if(p.name===name) existingIdx=i; });
-  if(existingIdx>=0) presets[existingIdx]={name:name, filters:snap};
-  else presets.push({name:name, filters:snap});
+  if(existingIdx>=0) presets[existingIdx]={name:name, buttons:snap};
+  else presets.push({name:name, buttons:snap});
   savePresetsList(presets);
   renderPresetSelect();
   inp.value='';
@@ -875,25 +896,10 @@ function loadPreset(idxStr){
   if(idxStr==='') return;
   var presets=getPresets();
   var p=presets[Number(idxStr)];
-  if(!p) return;
-  var f=p.filters;
-  if(f.typeId) selectTypeById(f.typeId);
-  if(f.stageVal){ var stg=document.getElementById('stage-select'); if(stg) stg.value=f.stageVal; }
-  document.getElementById('date-from').value=f.dateFrom||'';
-  document.getElementById('date-to').value=f.dateTo||'';
-  if(f.orgId){
-    AppState.selectedOrgId=f.orgId;
-    document.getElementById('org-inp').value=f.orgName||'';
-    document.getElementById('org-clr').style.display='flex';
-  } else {
-    AppState.selectedOrgId=null;
-    document.getElementById('org-inp').value='';
-    document.getElementById('org-clr').style.display='none';
-  }
-  if(f.statusId){
-    var selEl=document.getElementById('status-select');
-    if(selEl) selEl.value=f.statusId;
-  }
+  if(!p||!p.buttons||!p.buttons.length){ showToast('Пресет пуст или повреждён','err'); return; }
+  AppState.actionButtons=JSON.parse(JSON.stringify(p.buttons));
+  saveBtnCfg();
+  renderBtnCfg();
   showToast('Пресет «'+p.name+'» применён');
 }
 function deleteCurrentPreset(){
@@ -1200,7 +1206,10 @@ function renderBtnCfg(){
     var statusOpts='<option value="">-- Статус --</option>';
     AppState.allStatuses.forEach(function(s){
       var n=s.name||s.title||String(s.id);
-      var heuristicMatch=!b.statusId&&n.toLowerCase().indexOf(b.label.toLowerCase().split(' ')[0])>=0;
+      var firstWord=b.label.trim().toLowerCase().split(' ')[0];
+      // indexOf('') всегда >=0 — без guard'а на пустое слово кнопка с пустым/пробельным
+      // названием молча получала бы statusId первого попавшегося статуса из списка
+      var heuristicMatch=!b.statusId&&firstWord&&n.toLowerCase().indexOf(firstWord)>=0;
       // Совпадение по названию — не только визуальная подсказка: реально сохраняем его в модель,
       // иначе кнопка выглядит настроенной, но statusId остаётся пустым и её молча отбросит startReview()
       if(heuristicMatch){ b.statusId=String(s.id); guessedAny=true; }
@@ -1210,12 +1219,19 @@ function renderBtnCfg(){
     var stageOpts=
       '<option value="1"'+(b.stageId==='1'?' selected':'')+'>В работе</option>'+
       '<option value="2"'+(b.stageId==='2'?' selected':'')+'>Завершено</option>';
+    var statusMissing=!b.statusId;
     row.innerHTML='<span class="btn-cfg-num">'+(i+1)+'</span>'+
       '<input class="btn-cfg-label" type="text" value="'+esc(b.label)+'" placeholder="Название" oninput="updateBtn('+i+',\'label\',this.value)">'+
-      '<select class="btn-cfg-status" onchange="updateBtn('+i+',\'statusId\',this.value)">'+statusOpts+'</select>'+
-      '<select class="btn-cfg-stage" onchange="updateBtn('+i+',\'stageId\',this.value)" title="Стадия карточки">'+stageOpts+'</select>'+
+      '<select class="btn-cfg-status'+(statusMissing?' btn-cfg-invalid':'')+'" onchange="updateBtn('+i+',\'statusId\',this.value)" title="Этап — обязательно">'+statusOpts+'</select>'+
+      '<select class="btn-cfg-stage" onchange="updateBtn('+i+',\'stageId\',this.value)" title="Стадия карточки — обязательно">'+stageOpts+'</select>'+
       '<input class="btn-cfg-color" type="color" value="'+b.color+'" oninput="updateBtn('+i+',\'color\',this.value)">'+
       (AppState.actionButtons.length>1?'<button class="btn-cfg-del" onclick="delBtn('+i+')" title="Удалить">✕</button>':'');
+    if(statusMissing){
+      var warn=document.createElement('div');
+      warn.className='btn-cfg-warn';
+      warn.textContent='⚠ Выберите Этап — иначе кнопка не будет сохранять решение';
+      row.appendChild(warn);
+    }
     list.appendChild(row);
   });
   var addBtn=document.getElementById('add-btn-cfg');
@@ -1294,9 +1310,18 @@ function startReview(){
   if(!typeId){showToast('Выберите вид задания','err');return}
   if(!statusId){showToast('Выберите этап (статус)','err');return}
   if(!stageVal){showToast('Выберите стадию карточки','err');return}
-  var validBtns=AppState.actionButtons.filter(function(b){return b.label.trim()&&b.statusId});
-  if(!validBtns.length){showToast('Настройте хотя бы одну кнопку решения с выбранным статусом','err');return}
-  AppState.actionButtons=validBtns;
+  var labeledBtns=AppState.actionButtons.filter(function(b){return b.label.trim()});
+  if(!labeledBtns.length){showToast('Настройте хотя бы одну кнопку решения','err');return}
+  // Раньше кнопка без выбранного Этапа молча выпадала из проверки — пользователь не понимал,
+  // почему настроенная им кнопка не появилась на экране. Теперь требуем Этап И Стадию у каждой
+  // подписанной кнопки и называем конкретную кнопку в ошибке, вместо тихого исключения.
+  var incompleteBtn=labeledBtns.find(function(b){return !b.statusId||!b.stageId});
+  if(incompleteBtn){
+    showToast('Кнопка «'+incompleteBtn.label+'»: выберите и Этап, и Стадию в блоке 3 «Кнопки решений»','err');
+    renderBtnCfg();
+    return;
+  }
+  AppState.actionButtons=labeledBtns;
 
   clearReviewSession(); // начинается новая проверка — прошлая сессия больше не актуальна
   AppState.sessionStartTime=Date.now();
@@ -1746,6 +1771,7 @@ function closeLb(){
   document.getElementById('lb').classList.remove('open');
   document.body.classList.remove('lb-open');
   lbResetZoom(false);
+  document.querySelectorAll('#tc-photos .photo-thumb.active').forEach(function(t){t.classList.remove('active')});
 }
 function lbClose(e){if(e.target===document.getElementById('lb'))closeLb();}
 function lbNav(dir){
@@ -1805,6 +1831,7 @@ function renderDecisionBtns(taskId){
       h+='<span class="kb-hint"><span class="kb-key">'+(i+1)+'</span>'+b.label+'</span>';
     });
     h+='<span class="kb-hint"><span class="kb-key">S</span>Пропуск</span>';
+    h+='<span class="kb-hint"><span class="kb-key">⌫</span>Отменить решение</span>';
     h+='<span class="kb-hint"><span class="kb-key">← →</span>Навигация</span>';
     hints.innerHTML=h;
   }
@@ -1932,7 +1959,7 @@ function undoLastDecision(){
   if(taskId===undefined||taskId===null||AppState.decisions[taskId]===undefined){
     showToast('Отменять пока нечего'); return;
   }
-  var target=AppState.tasks.find(function(t){return t.id===taskId});
+  var target=AppState.tasks.find(function(t){return t.id==taskId}); // == — id может прийти строкой после восстановления сессии
   if(!target){ showToast('Отменять пока нечего'); return; }
   delete AppState.decisions[taskId];
   delete AppState.decisionTimes[taskId];

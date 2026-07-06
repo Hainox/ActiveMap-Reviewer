@@ -29,17 +29,6 @@ def _app_dir():
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
 
-def _resource(filename):
-    """Путь к bundled-ресурсу: сначала ищем рядом с exe (переопределение), потом в MEIPASS."""
-    if getattr(sys, 'frozen', False):
-        override = os.path.join(os.path.dirname(sys.executable), filename)
-        if os.path.exists(override):
-            return override
-        return os.path.join(sys._MEIPASS, filename)
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
-
-HTML_PATH = _resource("reviewer_html.html")
-
 # ── Logging setup ─────────────────────────────────────────────────────────────
 def _setup_logging():
     log_path = os.path.join(_app_dir(), "reviewer.log")
@@ -54,6 +43,22 @@ def _setup_logging():
 
 logger = _setup_logging()
 # ─────────────────────────────────────────────────────────────────────────────
+
+def _resource(filename):
+    """Путь к bundled-ресурсу: сначала ищем рядом с exe (переопределение), потом в MEIPASS."""
+    if getattr(sys, 'frozen', False):
+        override = os.path.join(os.path.dirname(sys.executable), filename)
+        if os.path.exists(override):
+            # Старый файл, оставленный рядом с .exe (от прошлой сборки/попытки Способа 2),
+            # молча выигрывает у актуальной версии, вшитой в exe — без этой записи в лог
+            # "скачал новую версию, а работает по-старому" было бы невозможно диагностировать.
+            logger.warning("Using %s override next to exe instead of bundled copy — "
+                            "delete it if this isn't intentional.", override)
+            return override
+        return os.path.join(sys._MEIPASS, filename)
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
+
+HTML_PATH = _resource("reviewer_html.html")
 
 
 def detect_auth_format(token, base_url, request_fn):
@@ -381,9 +386,39 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 class ThreadingServer(http.server.ThreadingHTTPServer):
     daemon_threads = True
+    # По умолчанию http.server разрешает SO_REUSEADDR, из-за чего на Windows вторая
+    # запущенная копия .exe молча биндится на тот же порт вместо ошибки — браузер
+    # затем случайно достаётся то новому, то старому процессу, и обновления версии
+    # выглядят так, будто они не применились. Отключаем, чтобы вторая копия падала
+    # с понятной ошибкой вместо создания второго невидимого процесса на порту.
+    allow_reuse_address = False
+
+def _running_instance_version():
+    """Версия уже запущенного на PORT процесса, если он отвечает — иначе None."""
+    try:
+        with urllib.request.urlopen(f"http://localhost:{PORT}/version", timeout=2) as resp:
+            return json.loads(resp.read()).get("version")
+    except Exception:
+        return None
 
 if __name__ == "__main__":
-    server = ThreadingServer(("localhost", PORT), Handler)
+    try:
+        server = ThreadingServer(("localhost", PORT), Handler)
+    except OSError:
+        other_version = _running_instance_version()
+        if other_version and other_version != VERSION:
+            # Старая копия .exe (--noconsole, без окна/иконки) не закрылась и заняла порт —
+            # её нельзя было "закрыть" обычным способом, только через Диспетчер задач.
+            # Новая версия при этом молча не появлялась бы: браузер продолжал бы стучаться
+            # в старый процесс. Явно предупреждаем вместо тихого открытия старой версии.
+            logger.warning("Port %d held by v%s while this build is v%s", PORT, other_version, VERSION)
+            print(f"Обнаружена запущенная старая копия (v{other_version}), эта копия — v{VERSION}.")
+            print("Закройте старую копию через Диспетчер задач (ActiveMapReviewer.exe) и запустите заново.")
+        else:
+            logger.info("Port %d already in use — another instance is likely running.", PORT)
+            print(f"ActiveMap Task Reviewer уже запущен — открываю http://localhost:{PORT}")
+        webbrowser.open(f"http://localhost:{PORT}")
+        sys.exit(0)
     logger.info("ActiveMap Task Reviewer v%s starting on port %d", VERSION, PORT)
     print(f"ActiveMap Task Reviewer v{VERSION}")
     print(f"  http://localhost:{PORT}")
