@@ -253,6 +253,15 @@ body.lb-open #scr-viewer .content{margin-left:50vw;width:50vw}
 .modal-actions .btn-send:disabled{opacity:.5;cursor:default}
 .modal-sent{text-align:center;padding:10px 28px 4px;color:#16a34a;font-size:14px;font-weight:700;display:none}
 
+/* TOAST — заменяет alert() */
+.toast-wrap{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:1100;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{background:#16223f;color:#fff;border-left:4px solid #c8a96a;border-radius:9px;padding:12px 18px;font-size:13px;box-shadow:0 12px 30px rgba(0,0,0,.25);max-width:420px;text-align:center}
+.toast.err{border-left-color:#dc2626}
+@keyframes toast-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+
+/* Бейдж "решено другим сотрудником" */
+.badge-other{background:#7c3aed;color:#fff}
+
 </style>
 </head>
 <body>
@@ -344,6 +353,19 @@ body.lb-open #scr-viewer .content{margin-left:50vw;width:50vw}
         <input id="date-to" type="date">
       </div>
     </div>
+    <div class="field">
+      <label>Пресеты фильтров</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="preset-select" onchange="loadPreset(this.value)" style="flex:1;border:1px solid #d7deea;border-radius:8px;padding:9px 10px;font-size:13px;font-family:inherit">
+          <option value="">— выбрать сохранённый пресет —</option>
+        </select>
+        <button class="btn-cfg-del" onclick="deleteCurrentPreset()" title="Удалить выбранный пресет">✕</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input id="preset-name-inp" type="text" placeholder="Название нового пресета" style="flex:1;border:1px solid #d7deea;border-radius:8px;padding:9px 10px;font-size:13px;font-family:inherit">
+        <button class="add-btn" onclick="savePreset()" style="flex:0 0 auto;padding:9px 16px">💾 Сохранить</button>
+      </div>
+    </div>
   </div>
 
   <!-- BLOCK 3: Кнопки решений -->
@@ -397,6 +419,7 @@ body.lb-open #scr-viewer .content{margin-left:50vw;width:50vw}
           <span class="task-badge badge-org" id="tc-org"></span>
           <span class="task-badge badge-status" id="tc-status"></span>
           <span class="task-badge badge-date" id="tc-date"></span>
+          <span class="task-badge badge-other" id="tc-other" style="display:none">👥 Решено другим сотрудником</span>
         </div>
       </div>
       <div class="task-card-body">
@@ -458,6 +481,7 @@ body.lb-open #scr-viewer .content{margin-left:50vw;width:50vw}
       <div class="sum-stat"><div class="n" id="sum-skipped" style="color:#64748b">0</div><div class="l">Пропущено</div></div>
     </div>
     <div id="sum-dec-breakdown"></div>
+    <div id="sum-throughput" style="font-size:12px;color:#64748b;margin-top:8px"></div>
   </div>
 
   <div class="sum-block" id="sum-submit-block">
@@ -477,6 +501,21 @@ body.lb-open #scr-viewer .content{margin-left:50vw;width:50vw}
   </div>
 
 </div>
+</div>
+
+<!-- ═══════════════ TOAST ═══════════════ -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<!-- ═══════════════ ПОДТВЕРЖДЕНИЕ (замена confirm()) ═══════════════ -->
+<div class="modal-overlay" id="confirm-modal" onclick="hideConfirmModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h3 id="confirm-title"></h3>
+    <p id="confirm-text"></p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="hideConfirmModal()">Отмена</button>
+      <button class="btn-send" onclick="_confirmOk()">Ок</button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════ BUG REPORT MODAL ═══════════════ -->
@@ -561,7 +600,9 @@ var AppState = {
   SUBMIT_GAP: 400,
   COLORS: ['#16a34a','#ea580c','#1e6ff1','#7c3aed','#dc2626'],
   orgParamName: 'contractorId',
-  _lastTaskUrl: ''
+  _lastTaskUrl: '',
+  lastDecidedTaskId: null,   // для отмены последнего решения по Backspace
+  sessionStartTime: null     // для статистики "заданий/мин" на экране итогов
 };
 
 // Lightbox state
@@ -575,6 +616,72 @@ var LightboxState={photos:[],curIdx:0,zoom:1,dx:0,dy:0};
 function show(id){
   document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});
   document.getElementById(id).classList.add('active');
+}
+
+// ── Toast (замена alert) ─────────────────────────────────
+function showToast(msg, type){
+  var wrap=document.getElementById('toast-wrap');
+  if(!wrap) return;
+  var t=document.createElement('div');
+  t.className='toast'+(type==='err'?' err':'');
+  t.style.animation='toast-in .2s ease';
+  t.textContent=msg;
+  wrap.appendChild(t);
+  setTimeout(function(){
+    t.style.transition='opacity .25s';
+    t.style.opacity='0';
+    setTimeout(function(){ t.remove(); },250);
+  },3200);
+}
+
+// ── Подтверждение (замена confirm) ───────────────────────
+var _confirmOkCb=null, _confirmCancelCb=null;
+function showConfirmModal(title, text, onOk, onCancel){
+  document.getElementById('confirm-title').textContent=title;
+  document.getElementById('confirm-text').textContent=text;
+  _confirmOkCb=onOk; _confirmCancelCb=onCancel||null;
+  document.getElementById('confirm-modal').classList.add('open');
+}
+function hideConfirmModal(e){
+  if(e&&e.target!==document.getElementById('confirm-modal')) return;
+  document.getElementById('confirm-modal').classList.remove('open');
+  var cb=_confirmCancelCb;
+  _confirmOkCb=null; _confirmCancelCb=null;
+  if(cb) cb();
+}
+function _confirmOk(){
+  var cb=_confirmOkCb;
+  document.getElementById('confirm-modal').classList.remove('open');
+  _confirmOkCb=null; _confirmCancelCb=null;
+  if(cb) cb();
+}
+
+// ── Сессия проверки в sessionStorage — переживает случайный F5, ────────
+//    но не переживает закрытие вкладки (в отличие от localStorage)
+function saveReviewSession(){
+  if(!AppState.tasks.length) return;
+  try{
+    sessionStorage.setItem('amr_review_session', JSON.stringify({
+      tasks: AppState.tasks,
+      idx: AppState.idx,
+      decisions: AppState.decisions,
+      decisionTimes: AppState.decisionTimes,
+      submitStatus: AppState.submitStatus,
+      actionButtons: AppState.actionButtons,
+      _lastTaskUrl: AppState._lastTaskUrl,
+      selectedTypeName: AppState.selectedTypeName,
+      sessionStartTime: AppState.sessionStartTime
+    }));
+  }catch(e){ console.error('[session] save failed', e); }
+}
+function restoreReviewSession(){
+  try{
+    var raw=sessionStorage.getItem('amr_review_session');
+    return raw?JSON.parse(raw):null;
+  }catch(e){ console.error('[session] restore failed', e); return null; }
+}
+function clearReviewSession(){
+  try{ sessionStorage.removeItem('amr_review_session'); }catch(e){ console.error('[session] clear failed', e); }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -616,6 +723,10 @@ document.addEventListener('keydown',function(e){
   if(e.key==='s'||e.key==='S'||e.key==='ы'||e.key==='Ы'){
     e.preventDefault(); decide(t.id,-1); navigate(1); return;
   }
+  // Backspace — отменить последнее решение и вернуться к тому заданию
+  if(e.key==='Backspace'){
+    e.preventDefault(); undoLastDecision(); return;
+  }
   if(lbOpenNow) return; // стрелки уже обработаны выше (навигация по фото, не по заданиям)
   // Стрелки — навигация вручную
   if(e.key==='ArrowRight') navigate(1);
@@ -639,6 +750,27 @@ function doLogin(){
     document.getElementById('setup-login-info').textContent='Пользователь: '+login;
     loadSetupData();
     show('scr-setup');
+    // Если страница была случайно перезагружена посреди проверки — предлагаем продолжить
+    var saved=restoreReviewSession();
+    if(saved && saved.tasks && saved.tasks.length){
+      var decidedCount=saved.tasks.filter(function(t){return saved.decisions[t.id]!==undefined}).length;
+      showConfirmModal('Продолжить проверку?',
+        'Найдена незавершённая проверка: '+decidedCount+' из '+saved.tasks.length+' обработано. Продолжить с того же места?',
+        function(){
+          AppState.tasks=saved.tasks; AppState.idx=saved.idx||0;
+          AppState.decisions=saved.decisions||{}; AppState.decisionTimes=saved.decisionTimes||{};
+          AppState.submitStatus=saved.submitStatus||{};
+          if(saved.actionButtons&&saved.actionButtons.length) AppState.actionButtons=saved.actionButtons;
+          AppState._lastTaskUrl=saved._lastTaskUrl||''; AppState.selectedTypeName=saved.selectedTypeName||'';
+          AppState.sessionStartTime=saved.sessionStartTime||null;
+          show('scr-viewer');
+          document.getElementById('task-loader').style.display='none';
+          document.getElementById('task-card-wrap').classList.remove('hidden');
+          document.getElementById('stats-bar').style.display='flex';
+          renderTask();
+        },
+        function(){ clearReviewSession(); });
+    }
   })
   .catch(function(e){
     showErr(err,e.message||'Ошибка авторизации');
@@ -692,6 +824,87 @@ function loadSetupData(){
   loadTypes();
   loadOrgs();
   initBtnCfg();
+  renderPresetSelect();
+}
+
+// ─── ПРЕСЕТЫ ФИЛЬТРОВ (несколько, именованные) ───
+function getPresets(){
+  try{ return JSON.parse(localStorage.getItem('amr_filter_presets')||'[]'); }
+  catch(e){ console.error('[presets] load failed', e); return []; }
+}
+function savePresetsList(list){
+  try{ localStorage.setItem('amr_filter_presets', JSON.stringify(list)); }
+  catch(e){ console.error('[presets] save failed', e); }
+}
+function renderPresetSelect(){
+  var sel=document.getElementById('preset-select');
+  if(!sel) return;
+  var presets=getPresets();
+  var html='<option value="">— выбрать сохранённый пресет —</option>';
+  presets.forEach(function(p,i){ html+='<option value="'+i+'">'+esc(p.name)+'</option>'; });
+  sel.innerHTML=html;
+}
+function currentFiltersSnapshot(){
+  return {
+    typeId: AppState.selectedTypeId,
+    typeName: AppState.selectedTypeName,
+    statusId: document.getElementById('status-select').value,
+    stageVal: document.getElementById('stage-select').value,
+    dateFrom: document.getElementById('date-from').value,
+    dateTo: document.getElementById('date-to').value,
+    orgId: AppState.selectedOrgId,
+    orgName: document.getElementById('org-inp').value
+  };
+}
+function savePreset(){
+  var inp=document.getElementById('preset-name-inp');
+  var name=inp.value.trim();
+  if(!name){ showToast('Введите название пресета','err'); return; }
+  var presets=getPresets();
+  var snap=currentFiltersSnapshot();
+  var existingIdx=-1;
+  presets.forEach(function(p,i){ if(p.name===name) existingIdx=i; });
+  if(existingIdx>=0) presets[existingIdx]={name:name, filters:snap};
+  else presets.push({name:name, filters:snap});
+  savePresetsList(presets);
+  renderPresetSelect();
+  inp.value='';
+  showToast('Пресет «'+name+'» сохранён');
+}
+function loadPreset(idxStr){
+  if(idxStr==='') return;
+  var presets=getPresets();
+  var p=presets[Number(idxStr)];
+  if(!p) return;
+  var f=p.filters;
+  if(f.typeId) selectTypeById(f.typeId);
+  if(f.stageVal){ var stg=document.getElementById('stage-select'); if(stg) stg.value=f.stageVal; }
+  document.getElementById('date-from').value=f.dateFrom||'';
+  document.getElementById('date-to').value=f.dateTo||'';
+  if(f.orgId){
+    AppState.selectedOrgId=f.orgId;
+    document.getElementById('org-inp').value=f.orgName||'';
+    document.getElementById('org-clr').style.display='flex';
+  } else {
+    AppState.selectedOrgId=null;
+    document.getElementById('org-inp').value='';
+    document.getElementById('org-clr').style.display='none';
+  }
+  if(f.statusId){
+    var selEl=document.getElementById('status-select');
+    if(selEl) selEl.value=f.statusId;
+  }
+  showToast('Пресет «'+p.name+'» применён');
+}
+function deleteCurrentPreset(){
+  var sel=document.getElementById('preset-select');
+  var idxStr=sel.value;
+  if(idxStr===''){ showToast('Сначала выберите пресет','err'); return; }
+  var presets=getPresets();
+  var removed=presets.splice(Number(idxStr),1);
+  savePresetsList(presets);
+  renderPresetSelect();
+  if(removed[0]) showToast('Пресет «'+removed[0].name+'» удалён');
 }
 
 function loadStatuses(){
@@ -1050,7 +1263,7 @@ function fetchTasksPage(baseUrl,accumulated,callback){
 
 function exportCSV(){
   var decided=AppState.tasks.filter(function(t){return AppState.decisions[t.id]!==undefined});
-  if(!decided.length){alert('Нет решений для экспорта');return}
+  if(!decided.length){showToast('Нет решений для экспорта','err');return}
   var rows=['﻿"ID","Номер","Решение","Статус","Стадия","Статус отправки","Время"'];
   var subLabels={ok:'Отправлено',err:'Ошибка отправки',q:'В очереди'};
   decided.forEach(function(t){
@@ -1078,13 +1291,15 @@ function startReview(){
   var typeId=document.getElementById('type-select').value;
   var statusId=document.getElementById('status-select').value;
   var stageVal=document.getElementById('stage-select').value;
-  if(!typeId){alert('Выберите вид задания');return}
-  if(!statusId){alert('Выберите этап (статус)');return}
-  if(!stageVal){alert('Выберите стадию карточки');return}
+  if(!typeId){showToast('Выберите вид задания','err');return}
+  if(!statusId){showToast('Выберите этап (статус)','err');return}
+  if(!stageVal){showToast('Выберите стадию карточки','err');return}
   var validBtns=AppState.actionButtons.filter(function(b){return b.label.trim()&&b.statusId});
-  if(!validBtns.length){alert('Настройте хотя бы одну кнопку решения с выбранным статусом');return}
+  if(!validBtns.length){showToast('Настройте хотя бы одну кнопку решения с выбранным статусом','err');return}
   AppState.actionButtons=validBtns;
 
+  clearReviewSession(); // начинается новая проверка — прошлая сессия больше не актуальна
+  AppState.sessionStartTime=Date.now();
   AppState.tasks=[]; AppState.idx=0; AppState.decisions={}; AppState.submitStatus={}; AppState.submitQueue=[];
 
   show('scr-viewer');
@@ -1133,12 +1348,21 @@ function startReview(){
 
 // Перезагрузить список не уходя с экрана просмотра
 function reloadTasks(){
-  if(!AppState._lastTaskUrl){alert('Сначала начните проверку через Настройки');return}
-  if(!confirm('Обновить список заданий?\nРешения в текущей сессии сохранятся в истории, но список начнётся заново.')) return;
+  if(!AppState._lastTaskUrl){showToast('Сначала начните проверку через Настройки','err');return}
+  showConfirmModal('Обновить список заданий?',
+    'Решения в текущей сессии сохранятся в истории, но список начнётся заново.',
+    _doReloadTasks);
+}
+
+function _doReloadTasks(){
   var btn=document.getElementById('btn-reload');
   btn.disabled=true; btn.textContent='⏳ Загрузка...';
   // Решения/история/очередь отправки НЕ сбрасываем — диалог выше обещает их сохранить,
   // а PATCH-очередь адресуется по taskId и не зависит от текущего списка AppState.tasks
+  var oldStatusMap={};
+  AppState.tasks.forEach(function(t){
+    oldStatusMap[t.id]=(t.statusName||t.status||'')+'|'+(t.stageTitle||t.stage||'');
+  });
   AppState.taskDetailCache={}; AppState.taskDetailLoading={};
   AppState.tasks=[]; AppState.idx=0;
   document.getElementById('task-loader').style.display='flex';
@@ -1147,9 +1371,18 @@ function reloadTasks(){
     btn.disabled=false; btn.textContent='🔄 Обновить';
     if(err){
       document.getElementById('task-loader').style.display='none';
-      alert('Ошибка загрузки: '+err);
+      showToast('Ошибка загрузки: '+err,'err');
       return;
     }
+    // Список общий для нескольких сотрудников: если статус/стадия задания сменились,
+    // а решение по нему в ЭТОЙ сессии никто не принимал — значит его обработал кто-то другой
+    allTasks.forEach(function(t){
+      var oldKey=oldStatusMap[t.id];
+      var newKey=(t.statusName||t.status||'')+'|'+(t.stageTitle||t.stage||'');
+      if(oldKey!==undefined&&oldKey!==newKey&&AppState.decisions[t.id]===undefined){
+        t._decidedByOther=true;
+      }
+    });
     AppState.tasks=allTasks;
     document.getElementById('task-loader').style.display='none';
     if(!AppState.tasks.length){
@@ -1181,6 +1414,8 @@ function renderTask(){
   document.getElementById('tc-status').textContent=t.statusName||t.status||t.stageTitle||'';
   var dt=t.planDate||t.date||t.createdAt||t.created_at||'';
   document.getElementById('tc-date').textContent=dt?('📅 '+fmtDate(dt)):'';
+  var otherBadge=document.getElementById('tc-other');
+  if(otherBadge) otherBadge.style.display=t._decidedByOther?'':'none';
 
   // Description
   document.getElementById('tc-desc').textContent=t.description||t.text||t.body||'';
@@ -1220,6 +1455,7 @@ function renderTask(){
 
   updateTopStats();
   renderHist();
+  saveReviewSession();
 }
 
 // ── Загружаем детали задания (фото + кастомные поля) ──────────────────────
@@ -1580,6 +1816,7 @@ function renderDecisionBtns(taskId){
 function decide(taskId,btnIdx){
   AppState.decisions[taskId]=btnIdx;
   AppState.decisionTimes[taskId]=new Date().toISOString();
+  AppState.lastDecidedTaskId=taskId; // для отмены по Backspace
   // Visual highlight
   document.querySelectorAll('.dec-btn').forEach(function(b){b.classList.remove('active')});
   if(btnIdx===-1){
@@ -1604,6 +1841,7 @@ function decide(taskId,btnIdx){
   }
   updateTopStats();
   renderHist();
+  saveReviewSession();
 }
 
 function kickQueue(){
@@ -1687,10 +1925,29 @@ function navigate(dir){
   renderTask();
 }
 
+// Backspace — вернуться к последнему решённому заданию и сбросить его решение,
+// не трогая уже отправленный в ActiveMap статус (пользователь просто примет решение заново)
+function undoLastDecision(){
+  var taskId=AppState.lastDecidedTaskId;
+  if(taskId===undefined||taskId===null||AppState.decisions[taskId]===undefined){
+    showToast('Отменять пока нечего'); return;
+  }
+  var target=AppState.tasks.find(function(t){return t.id===taskId});
+  if(!target){ showToast('Отменять пока нечего'); return; }
+  delete AppState.decisions[taskId];
+  delete AppState.decisionTimes[taskId];
+  delete AppState.submitStatus[taskId];
+  AppState.lastDecidedTaskId=null;
+  AppState.idx=AppState.tasks.indexOf(target);
+  renderTask();
+  showToast('Решение отменено — выберите заново');
+}
+
 function goSetup(){initBtnCfg();show('scr-setup')} // пересобираем UI кнопок из localStorage — иначе строки
 // в DOM ссылаются на индексы, обрезанные startReview(), и правки молча не сохраняются
 
 function finishReview(){
+  clearReviewSession(); // проверка завершена — восстанавливать больше нечего
   // Send any remaining
   sendRemaining();
   show('scr-summary');
@@ -1775,6 +2032,15 @@ function renderSummary(){
       '<span class="sum-dec-cnt">'+cnt+'</span></div>';
   });
   document.getElementById('sum-dec-breakdown').innerHTML=html;
+
+  var throughputEl=document.getElementById('sum-throughput');
+  if(throughputEl){
+    var elapsedMin=AppState.sessionStartTime?(Date.now()-AppState.sessionStartTime)/60000:0;
+    var handled=decided+skipped;
+    throughputEl.textContent=(elapsedMin>0.05&&handled>0)
+      ? ('⚡ Скорость: '+(handled/elapsedMin).toFixed(1)+' заданий/мин')
+      : '';
+  }
 
   updateSummarySubmit();
   // Keep updating as queue processes
@@ -1882,7 +2148,7 @@ function submitBugReport(){
   })
   .catch(function(){
     btn.disabled=false; btn.textContent='Отправить';
-    alert('Не удалось сохранить отчёт. Попробуйте ещё раз.');
+    showToast('Не удалось сохранить отчёт. Попробуйте ещё раз.','err');
   });
 }
 
