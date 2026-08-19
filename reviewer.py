@@ -234,6 +234,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 content_type = resp.headers.get("Content-Type","application/json")
                 body = resp.read()  # читаем ДО отправки заголовков — иначе обрыв чтения тут привёл бы
                                      # ко второму send_response() поверх уже отправленного 200
+            # Логируем, какой именно запрос со всеми фильтрами реально ушёл в ActiveMap и сколько
+            # байт пришло — без этого расхождение "выбрал одно, загрузилось другое" приходится
+            # диагностировать через консоль браузера у пользователя вручную
+            if "/tasks" in url:
+                logger.info("GET %s -> %d bytes", url, len(body))
             self.send_response(200)
             self.send_header("Content-Type", content_type)
             self._cors(); self.end_headers(); self.wfile.write(body)
