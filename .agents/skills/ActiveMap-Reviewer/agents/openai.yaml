@@ -1,0 +1,6 @@
+interface:
+  display_name: "ActiveMap Reviewer"
+  short_description: "Repo-specific patterns and workflows for ActiveMap-Reviewer"
+  default_prompt: "Use the ActiveMap-Reviewer repo skill to follow existing architecture, testing, and workflow conventions."
+policy:
+  allow_implicit_invocation: true
