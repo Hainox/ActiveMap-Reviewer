@@ -1097,22 +1097,26 @@ function loadOrgs(){
 
   function fetchAllPages(baseUrl, cb){
     var all=[];
-    function nextPage(offset){
-      var url=baseUrl+'&limit='+PAGE+'&offset='+offset;
+    // ActiveMap игнорирует &offset= и пагинирует по &page= (см. fetchTasksPage) — та же логика здесь
+    function nextPage(pageNum){
+      if(pageNum>500){ cb(null, all); return } // страховка от зацикливания
+      var url=baseUrl+'&limit='+PAGE+'&page='+pageNum;
       fetch(url)
       .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
       .then(function(d){
         var items=Array.isArray(d)?d:(d.data||d.items||d.contractors||d.organizations||d.executors||[]);
         all=all.concat(items);
-        if(items.length===PAGE){
-          nextPage(offset+PAGE); // есть ещё страницы
+        var total=Array.isArray(d)?null:(typeof d.count==='number'?d.count:null);
+        var hasMore=total!==null?all.length<total:items.length===PAGE;
+        if(items.length&&hasMore){
+          nextPage(pageNum+1); // есть ещё страницы
         } else {
           cb(null, all);
         }
       })
       .catch(function(e){ cb(e); });
     }
-    nextPage(0);
+    nextPage(1);
   }
 
   function tryNext(i){
@@ -1278,16 +1282,24 @@ function delBtn(i){
 // ═══════════════════════════════════════════════════════════
 //  START REVIEW
 // ═══════════════════════════════════════════════════════════
-function fetchTasksPage(baseUrl,accumulated,callback){
-  var url=baseUrl+'&offset='+accumulated.length;
+function fetchTasksPage(baseUrl,accumulated,callback,pageNum){
+  // ActiveMap игнорирует &offset= и всегда отдаёт первую страницу — пагинация здесь идёт
+  // по номеру страницы (&page=), сервер сам возвращает total в поле count. Реальный случай:
+  // это молчаливое игнорирование offset заставляло клиент бесконечно переспрашивать одну и ту
+  // же первую страницу и копить дубликаты (751 реальных заданий превращались в 11500+)
+  pageNum=pageNum||1;
+  if(pageNum>500){callback(null,accumulated);return} // страховка от зацикливания, если count не пришёл и сервер никогда не отдаст пустую страницу
+  var url=baseUrl+'&page='+pageNum;
   fetch(url)
   .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
   .then(function(d){
     var page=Array.isArray(d)?d:(d.data||d.items||d.tasks||[]);
     var all=accumulated.concat(page);
     document.getElementById('task-loader-text').textContent='Загружено: '+all.length+' заданий...';
-    if(page.length>=500){
-      fetchTasksPage(baseUrl,all,callback);
+    var total=Array.isArray(d)?null:(typeof d.count==='number'?d.count:null);
+    var hasMore=total!==null?all.length<total:page.length>=500;
+    if(page.length&&hasMore){
+      fetchTasksPage(baseUrl,all,callback,pageNum+1);
     } else {
       callback(null,all);
     }
