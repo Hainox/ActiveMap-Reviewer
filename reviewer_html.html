@@ -326,8 +326,8 @@ body.lb-open #scr-viewer .content{margin-left:50vw;width:50vw}
       </select>
     </div>
     <div class="field">
-      <label>Стадия карточки</label>
-      <select id="stage-select">
+      <label>Стадия карточки <span id="stage-chosen-lbl" style="font-size:11px;font-weight:600"></span></label>
+      <select id="stage-select" onchange="updateStageChosenLbl()">
         <option value="" disabled selected>-- Выберите стадию --</option>
         <option value="1">В работе (активные)</option>
         <option value="2">Завершено</option>
@@ -836,7 +836,7 @@ function restoreFilters(){
     if(!saved) return;
     if(saved.typeId) AppState.selectedTypeId=saved.typeId;
     if(saved.statusId) AppState._savedStatusId=saved.statusId;
-    if(saved.stageVal){var stg=document.getElementById('stage-select');if(stg) stg.value=saved.stageVal;}
+    if(saved.stageVal){var stg=document.getElementById('stage-select');if(stg){stg.value=saved.stageVal;updateStageChosenLbl();}}
     if(saved.dateFrom) document.getElementById('date-from').value=saved.dateFrom;
     if(saved.dateTo) document.getElementById('date-to').value=saved.dateTo;
     if(saved.orgId){
@@ -846,6 +846,24 @@ function restoreFilters(){
       if(clr) clr.style.display='flex';
     }
   }catch(e){ console.error('[filters] restore failed', e); }
+}
+
+function updateStageChosenLbl(){
+  var sel=document.getElementById('stage-select');
+  var lbl=document.getElementById('stage-chosen-lbl');
+  if(!sel||!lbl) return;
+  var opt=sel.options[sel.selectedIndex];
+  if(!opt||!opt.value){ lbl.textContent=''; return; }
+  if(opt.value==='all'){
+    // "Все стадии" молча убирает фильтр stage из запроса — на вид похоже на обычный выбор,
+    // но по факту это самая широкая выборка (пример: коллегу это привело к загрузке ВСЕХ
+    // заданий вида+статуса вместо только "В работе"). Подсвечиваем иначе, чтобы это было видно.
+    lbl.style.color='#ea580c';
+    lbl.textContent='⚠ '+opt.textContent+' — без фильтра по стадии';
+  } else {
+    lbl.style.color='#1e6ff1';
+    lbl.textContent='✓ '+opt.textContent;
+  }
 }
 
 function loadSetupData(){
