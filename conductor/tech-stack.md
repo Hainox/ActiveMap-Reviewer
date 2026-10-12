@@ -94,4 +94,4 @@ pyinstaller --onefile --noconsole --add-data "reviewer_html.html;." reviewer.py
 
 ### CI/CD (GitHub Actions)
 
-Build triggers on push to `master` or tag `v*`. Artifact: `ActiveMapReviewer.exe`.
+The exe builds only on a `v*.*.*` tag (`release.yml`); `python-app.yml` (syntax checks and pytest on push and PR to `main`) is currently disabled in Actions settings. Artifact: `ActiveMapReviewer.exe`.
