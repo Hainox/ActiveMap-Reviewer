@@ -2,7 +2,7 @@ Start the "Guardrails Learning Loop" loop.
 
 Goal: tests and lint pass without repeating prior failure patterns
 Max iterations: 12
-Between iterations run: npm test && npm run lint
+Between iterations run: python -m py_compile reviewer.py && python -m pytest tests/ -v
 Exit when: all checks pass
 
 Step 1: Read .ralph/guardrails.md, run checks, and if a failure repeats, add a sign before fixing.
